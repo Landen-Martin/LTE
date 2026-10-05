@@ -3,10 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Landen's Text Editor — a lightweight browser-based editor with syntax highlighting, Vim mode, and an in-browser code runner.">
+<meta name="theme-color" content="#007bff">
 <title>Landen's Text Editor</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23007bff'/%3E%3Cpath d='M8 9h16M8 16h12M8 23h16' stroke='white' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 
 <style>
 /* ============================================================
@@ -45,21 +48,31 @@
   --danger: #dc3545;
   --danger-hover: #bd2130;
 
+  /* Token colours — light theme */
   --tok-keyword: #a626a4;
   --tok-builtin: #4078f2;
+  --tok-magic: #c18401;
   --tok-string: #50a14f;
   --tok-number: #986801;
   --tok-comment: #a0a1a7;
   --tok-function: #4078f2;
-  --tok-type: #c18401;
+  --tok-class: #c18401;
+  --tok-decorator: #e45649;
+  --tok-operator: #0184bc;
   --tok-tag: #e45649;
   --tok-attr: #986801;
-  --tok-preproc: #c18401;
   --tok-property: #4078f2;
   --tok-selector: #e45649;
+  --tok-atrule: #a626a4;
   --tok-heading: #a626a4;
   --tok-code: #50a14f;
   --tok-link: #4078f2;
+  --tok-punct: #6b7280;
+  --tok-doctype: #a0a1a7;
+  --tok-entity: #986801;
+  --tok-preproc: #c18401;
+  --tok-bold: #383a42;
+  --tok-italic: #383a42;
 }
 
 body.dark-theme {
@@ -79,19 +92,28 @@ body.dark-theme {
 
   --tok-keyword: #c678dd;
   --tok-builtin: #61afef;
+  --tok-magic: #e5c07b;
   --tok-string: #98c379;
   --tok-number: #d19a66;
   --tok-comment: #7f848e;
   --tok-function: #61afef;
-  --tok-type: #e5c07b;
+  --tok-class: #e5c07b;
+  --tok-decorator: #e06c75;
+  --tok-operator: #56b6c2;
   --tok-tag: #e06c75;
   --tok-attr: #d19a66;
-  --tok-preproc: #e5c07b;
   --tok-property: #61afef;
   --tok-selector: #e06c75;
+  --tok-atrule: #c678dd;
   --tok-heading: #c678dd;
   --tok-code: #98c379;
   --tok-link: #61afef;
+  --tok-punct: #abb2bf;
+  --tok-doctype: #7f848e;
+  --tok-entity: #d19a66;
+  --tok-preproc: #e5c07b;
+  --tok-bold: #d4d4d4;
+  --tok-italic: #d4d4d4;
 }
 
 /* ============================================================
@@ -108,6 +130,7 @@ html, body {
   color: var(--text-color);
   transition: background-color .2s, color .2s;
   overflow: hidden;
+  -webkit-text-size-adjust: 100%;
 }
 button { font-family: inherit; }
 input, select, textarea { font-family: inherit; }
@@ -132,7 +155,6 @@ input, select, textarea { font-family: inherit; }
   gap: 4px;
   z-index: 10;
 }
-
 .sub-bar {
   height: 44px;
   background: var(--bg-subbar);
@@ -145,7 +167,6 @@ input, select, textarea { font-family: inherit; }
   overflow-y: hidden;
   z-index: 9;
 }
-
 .status-bar {
   height: 26px;
   background: var(--bg-surface);
@@ -164,7 +185,6 @@ input, select, textarea { font-family: inherit; }
   font-weight: 700;
   color: var(--accent-color);
 }
-
 .toolbar-divider {
   width: 1px;
   height: 20px;
@@ -174,10 +194,9 @@ input, select, textarea { font-family: inherit; }
 }
 
 /* ============================================================
-   4. Dropdown menus
+   4. Dropdowns
    ============================================================ */
 .dropdown { position: relative; }
-
 .dropdown-btn {
   background: transparent;
   border: 1px solid transparent;
@@ -191,7 +210,6 @@ input, select, textarea { font-family: inherit; }
 }
 .dropdown-btn:hover { background: var(--hover-bg); border-color: var(--border-color); }
 .dropdown.open .dropdown-btn { background: var(--active-bg); border-color: var(--border-color); }
-
 .dropdown-content {
   display: none;
   position: absolute;
@@ -209,7 +227,6 @@ input, select, textarea { font-family: inherit; }
   animation: fadeIn .12s ease-out;
 }
 .dropdown.open .dropdown-content { display: block; }
-
 .dropdown-content button {
   width: 100%;
   display: flex;
@@ -294,7 +311,6 @@ input, select, textarea { font-family: inherit; }
   border-color: var(--accent-color);
   color: var(--accent-color);
 }
-
 .btn-primary, .btn-secondary, .btn-danger {
   border-radius: 6px;
   cursor: pointer;
@@ -385,7 +401,6 @@ input:checked + .slider::before { transform: translateX(18px); }
   overflow: hidden;
   min-height: 0;
 }
-
 .editor-container {
   flex: 1 1 auto;
   position: relative;
@@ -393,7 +408,6 @@ input:checked + .slider::before { transform: translateX(18px); }
   background: var(--bg-primary);
   min-height: 0;
 }
-
 .bg-image-layer, .bg-overlay-layer {
   position: absolute;
   inset: 0;
@@ -412,7 +426,6 @@ input:checked + .slider::before { transform: translateX(18px); }
   background: var(--bg-primary);
   opacity: var(--bg-overlay-opacity);
 }
-
 .editor-inner {
   position: relative;
   z-index: 3;
@@ -420,7 +433,6 @@ input:checked + .slider::before { transform: translateX(18px); }
   height: 100%;
   overflow: hidden;
 }
-
 .gutter {
   flex: 0 0 auto;
   overflow: hidden;
@@ -455,95 +467,81 @@ input:checked + .slider::before { transform: translateX(18px); }
   width: 1px;
   background: var(--rule-margin);
   opacity: 0;
-  z-index: 0;
+  z-index: 4;
   pointer-events: none;
   transition: opacity .2s;
 }
 .text-column.show-margin::after { opacity: 1; }
 
-#editor, .highlight-layer {
+/* ---- The editable content area.
+   Contenteditable div — highlighting happens inside, so there's
+   only one text layer and colours can't drift. */
+#editor {
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
   padding: var(--editor-pad);
   font-family: var(--editor-font);
   font-size: var(--editor-size);
   font-weight: var(--editor-weight, 400);
   font-style: var(--editor-style, normal);
-  text-decoration: var(--editor-decoration, none);
   line-height: var(--editor-leading);
-  letter-spacing: normal;
-  tab-size: 4;
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
-  word-break: normal;
-  scrollbar-gutter: stable;
-}
-
-#editor {
-  position: relative;
-  z-index: 1;
-  display: block;
-  width: 100%;
-  height: 100%;
+  text-decoration: var(--editor-decoration, none);
   color: var(--text-color);
   background-color: transparent;
   border: none;
   outline: none;
-  resize: none;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+  tab-size: 4;
+  -moz-tab-size: 4;
   caret-color: var(--accent-color);
+  cursor: text;
+  -webkit-user-modify: read-write-plaintext-only;
 }
-#editor::placeholder { color: var(--text-muted); opacity: .7; }
 #editor.wrap-off { white-space: pre; overflow-wrap: normal; }
-
-.highlight-layer {
-  position: absolute;
-  inset: 0;
-  margin: 0;
-  overflow: hidden;
-  pointer-events: none;
-  color: var(--text-color);
-  z-index: 0;
-  display: none;
-  will-change: transform;
-}
-.highlight-layer code {
-  font: inherit;
-  color: inherit;
-  white-space: inherit;
-  overflow-wrap: inherit;
-  tab-size: inherit;
-}
-
-.editor-inner.hl-on .highlight-layer { display: block; }
-.editor-inner.hl-on #editor {
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-}
-.editor-inner.hl-on #editor::placeholder {
-  color: var(--text-muted);
-  -webkit-text-fill-color: var(--text-muted);
-}
 #editor::selection {
   background: color-mix(in srgb, var(--accent-color) 35%, transparent);
 }
+#editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  opacity: .7;
+  pointer-events: none;
+}
 
-/* Token colors */
-.tok-keyword  { color: var(--tok-keyword); font-weight: 600; }
-.tok-builtin  { color: var(--tok-builtin); }
-.tok-string   { color: var(--tok-string); }
-.tok-number   { color: var(--tok-number); }
-.tok-comment  { color: var(--tok-comment); font-style: italic; }
-.tok-function { color: var(--tok-function); }
-.tok-type     { color: var(--tok-type); }
-.tok-tag      { color: var(--tok-tag); }
-.tok-attr     { color: var(--tok-attr); }
-.tok-preproc  { color: var(--tok-preproc); }
-.tok-property { color: var(--tok-property); }
-.tok-selector { color: var(--tok-selector); font-weight: 600; }
-.tok-heading  { color: var(--tok-heading); font-weight: 700; }
-.tok-bold     { font-weight: 700; }
-.tok-italic   { font-style: italic; }
-.tok-code     { color: var(--tok-code); background: color-mix(in srgb, var(--text-color) 6%, transparent); border-radius: 3px; }
-.tok-link     { color: var(--tok-link); text-decoration: underline; }
+/* --- Token colours ---
+   With a contenteditable, styling tokens doesn't desync anything —
+   the coloured text IS the text. Font weight/style is safe here. */
+.tok-keyword   { color: var(--tok-keyword); font-weight: 600; }
+.tok-builtin   { color: var(--tok-builtin); }
+.tok-magic     { color: var(--tok-magic); font-weight: 600; }
+.tok-string    { color: var(--tok-string); }
+.tok-number    { color: var(--tok-number); }
+.tok-comment   { color: var(--tok-comment); font-style: italic; }
+.tok-function  { color: var(--tok-function); }
+.tok-class     { color: var(--tok-class); font-weight: 600; }
+.tok-decorator { color: var(--tok-decorator); }
+.tok-operator  { color: var(--tok-operator); }
+.tok-tag       { color: var(--tok-tag); }
+.tok-attr      { color: var(--tok-attr); }
+.tok-property  { color: var(--tok-property); }
+.tok-selector  { color: var(--tok-selector); font-weight: 600; }
+.tok-atrule    { color: var(--tok-atrule); }
+.tok-heading   { color: var(--tok-heading); font-weight: 700; }
+.tok-code      { color: var(--tok-code); background: color-mix(in srgb, var(--text-color) 6%, transparent); border-radius: 3px; }
+.tok-link      { color: var(--tok-link); text-decoration: underline; }
+.tok-punct     { color: var(--tok-punct); }
+.tok-doctype   { color: var(--tok-doctype); }
+.tok-entity    { color: var(--tok-entity); }
+.tok-preproc   { color: var(--tok-preproc); }
+.tok-bold      { font-weight: 700; }
+.tok-italic    { font-style: italic; }
 
+/* --- Paper styles --- */
 #editor, .line-numbers {
   --rule-h: calc(var(--editor-size) * var(--editor-leading));
   --rule-w: 4ch;
@@ -604,7 +602,6 @@ input:checked + .slider::before { transform: translateX(18px); }
   transition: height .2s ease;
 }
 .run-panel.open { height: 260px; }
-
 .run-header {
   height: 34px;
   flex-shrink: 0;
@@ -629,7 +626,6 @@ input:checked + .slider::before { transform: translateX(18px); }
   color: var(--text-muted);
 }
 .run-header .btn-secondary { padding: 4px 12px; font-size: 12px; }
-
 .run-body {
   flex: 1;
   position: relative;
@@ -677,7 +673,6 @@ input:checked + .slider::before { transform: translateX(18px); }
   padding: 16px;
 }
 .modal-overlay.open { display: flex; }
-
 .modal-box {
   background: var(--bg-surface);
   color: var(--text-color);
@@ -691,16 +686,14 @@ input:checked + .slider::before { transform: translateX(18px); }
   overflow: auto;
 }
 .modal-box h3 { margin-bottom: 14px; font-size: 17px; font-weight: 600; }
-
 .field-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 .field-row { display: flex; gap: 8px; align-items: center; }
 .field-label { font-size: 12px; color: var(--text-muted); }
 .field-help { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
-
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
 .find-meta { font-size: 12px; color: var(--text-muted); min-height: 16px; }
 
-.changelog-box { width: 540px; }
+.changelog-box { width: 560px; }
 .changelog-list {
   margin: 0 0 14px;
   padding-left: 0;
@@ -751,6 +744,16 @@ input:checked + .slider::before { transform: translateX(18px); }
   border-bottom: 1px solid var(--border-color);
 }
 .settings-header h3 { margin: 0; }
+.settings-header .version-badge {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  background: var(--bg-subbar);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  color: var(--text-muted);
+  margin-left: 8px;
+}
 .close-btn {
   width: 28px; height: 28px;
   display: flex; align-items: center; justify-content: center;
@@ -760,7 +763,6 @@ input:checked + .slider::before { transform: translateX(18px); }
   transition: background-color .15s, color .15s;
 }
 .close-btn:hover { background: var(--hover-bg); color: var(--text-color); }
-
 .settings-body { display: flex; flex: 1; overflow: hidden; }
 .settings-sidebar {
   width: 180px;
@@ -800,10 +802,8 @@ input:checked + .slider::before { transform: translateX(18px); }
   border-top: 1px solid var(--border-color);
   background: var(--bg-surface);
 }
-
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
-
 .section-title {
   font-size: 13px;
   font-weight: 700;
@@ -815,7 +815,6 @@ input:checked + .slider::before { transform: translateX(18px); }
   border-bottom: 1px solid var(--border-color);
 }
 .section-title:first-child { margin-top: 0; }
-
 .setting-item {
   display: flex;
   justify-content: space-between;
@@ -837,7 +836,6 @@ input:checked + .slider::before { transform: translateX(18px); }
   font-family: ui-monospace, monospace;
   font-size: 12px;
 }
-
 .template-item {
   display: flex;
   justify-content: space-between;
@@ -902,11 +900,10 @@ input:checked + .slider::before { transform: translateX(18px); }
     position: static;
     height: auto;
     color: #000 !important;
-    -webkit-text-fill-color: #000 !important;
     padding: 0;
     background-image: none !important;
   }
-  .bg-image-layer, .bg-overlay-layer, .text-column::after, .highlight-layer { display: none !important; }
+  .bg-image-layer, .bg-overlay-layer, .text-column::after { display: none !important; }
 }
 
 @media (max-width: 640px) {
@@ -923,7 +920,6 @@ input:checked + .slider::before { transform: translateX(18px); }
      ============================================================ -->
 <div class="top-bar">
 
-  <!-- File -->
   <div class="dropdown">
     <button class="dropdown-btn" type="button">File ▾</button>
     <div class="dropdown-content">
@@ -956,7 +952,6 @@ input:checked + .slider::before { transform: translateX(18px); }
     </div>
   </div>
 
-  <!-- Edit -->
   <div class="dropdown">
     <button class="dropdown-btn" type="button">Edit ▾</button>
     <div class="dropdown-content">
@@ -1032,7 +1027,6 @@ input:checked + .slider::before { transform: translateX(18px); }
     </div>
   </div>
 
-  <!-- View -->
   <div class="dropdown" id="viewDropdown">
     <button class="dropdown-btn" type="button">View ▾</button>
     <div class="dropdown-content">
@@ -1137,13 +1131,9 @@ input:checked + .slider::before { transform: translateX(18px); }
   </button>
 </div>
 
-<!-- Hidden inputs -->
 <input type="file" id="fileInput" class="hidden-input">
 <input type="file" id="bgFileInput" class="hidden-input" accept="image/*">
 
-<!-- ============================================================
-     WORK AREA
-     ============================================================ -->
 <div class="work-area">
   <div class="editor-container">
     <div class="bg-image-layer" id="bgImageLayer"></div>
@@ -1154,13 +1144,16 @@ input:checked + .slider::before { transform: translateX(18px); }
         <div class="line-numbers" id="lineNumbers"></div>
       </div>
       <div class="text-column" id="textColumn">
-        <pre class="highlight-layer" id="highlightLayer" aria-hidden="true"><code id="highlightCode"></code></pre>
-        <textarea id="editor" placeholder="Start typing…" spellcheck="false"></textarea>
+        <div id="editor"
+             contenteditable="true"
+             role="textbox"
+             aria-multiline="true"
+             spellcheck="false"
+             data-placeholder="Start typing…"></div>
       </div>
     </div>
   </div>
 
-  <!-- Run panel -->
   <div class="run-panel" id="runPanel">
     <div class="run-header">
       <span id="runLangLabel">Output</span>
@@ -1176,9 +1169,6 @@ input:checked + .slider::before { transform: translateX(18px); }
   </div>
 </div>
 
-<!-- ============================================================
-     STATUS BAR
-     ============================================================ -->
 <div class="status-bar">
   <span id="statusVim" style="display:none">-- NORMAL --</span>
   <span id="statusPos">Ln 1, Col 1</span>
@@ -1192,24 +1182,23 @@ input:checked + .slider::before { transform: translateX(18px); }
   <span id="statusSave">Saved</span>
 </div>
 
-<!-- Toast -->
 <div class="toast" id="toast"></div>
 
 <!-- ============================================================
      MODALS
      ============================================================ -->
 
-<!-- Changelog -->
 <div class="modal-overlay" id="changelogModal">
   <div class="modal-box changelog-box">
     <h3>What's new in v1.1</h3>
     <ul class="changelog-list">
-      <li><b>Dev mode.</b> A new settings tab with <b>Vim keybindings</b>, language selection, and an in-editor code runner.</li>
-      <li><b>Run code.</b> Execute <b>Python</b> (via Pyodide), <b>JavaScript</b>, and <b>HTML</b> directly in a split output panel below the editor.</li>
-      <li><b>Syntax highlighting.</b> Colour-coded keywords, strings, numbers, comments, and functions for Python, JavaScript, HTML, CSS, C, JSON, and Markdown.</li>
-      <li><b>Vim mode.</b> Normal-mode navigation with <em>h j k l</em>, <em>w / b</em>, <em>0 / $</em>, <em>gg / G</em>, plus <em>i a o O I A</em>, <em>x</em>, <em>dd</em>, <em>yy</em>, <em>p</em>, <em>u</em>, and <em>:w</em> / <em>:wq</em>.</li>
-      <li><b>Lined paper.</b> Ruled, grid, and dotted page styles with adjustable line colour and a margin rule.</li>
-      <li><b>Bold, italic, underline.</b> Toolbar buttons and Ctrl+B / I / U shortcuts for the current selection.</li>
+      <li><b>Syntax colours are back</b> — now using a contenteditable editor so highlighting is baked right into the text. No more overlay drift, ever.</li>
+      <li><b>Richer token palette.</b> Keywords, builtins, magic names like <em>__name__</em>, decorators, classes, functions, f-strings, operators, punctuation.</li>
+      <li><b>Dev mode.</b> Settings tab with <b>Vim keybindings</b>, language selection, and an in-editor code runner.</li>
+      <li><b>Run code.</b> Execute <b>Python</b> (via Pyodide), <b>JavaScript</b>, and <b>HTML</b> below the editor.</li>
+      <li><b>Vim mode.</b> <em>h j k l</em>, <em>w / b</em>, <em>0 / $</em>, <em>gg / G</em>, <em>i a o O I A</em>, <em>x</em>, <em>dd</em>, <em>yy</em>, <em>p</em>, <em>u</em>, <em>:w</em>.</li>
+      <li><b>Lined paper.</b> Ruled, grid, and dotted styles with adjustable colour and a margin rule.</li>
+      <li><b>Bold, italic, underline.</b> Toolbar buttons and Ctrl+B / I / U.</li>
     </ul>
     <label class="changelog-remember">
       <input type="checkbox" id="changelogDontShow">
@@ -1221,7 +1210,6 @@ input:checked + .slider::before { transform: translateX(18px); }
   </div>
 </div>
 
-<!-- Find -->
 <div class="modal-overlay" id="findModal">
   <div class="modal-box">
     <h3>Find Text</h3>
@@ -1237,7 +1225,6 @@ input:checked + .slider::before { transform: translateX(18px); }
   </div>
 </div>
 
-<!-- Replace -->
 <div class="modal-overlay" id="replaceModal">
   <div class="modal-box">
     <h3>Find &amp; Replace All</h3>
@@ -1256,7 +1243,6 @@ input:checked + .slider::before { transform: translateX(18px); }
   </div>
 </div>
 
-<!-- Go to line -->
 <div class="modal-overlay" id="gotoModal">
   <div class="modal-box">
     <h3>Go to Line</h3>
@@ -1271,7 +1257,6 @@ input:checked + .slider::before { transform: translateX(18px); }
   </div>
 </div>
 
-<!-- Export -->
 <div class="modal-overlay" id="exportModal">
   <div class="modal-box">
     <h3>Download File</h3>
@@ -1302,7 +1287,6 @@ input:checked + .slider::before { transform: translateX(18px); }
   </div>
 </div>
 
-<!-- Templates -->
 <div class="modal-overlay" id="templateModal">
   <div class="modal-box">
     <h3>Load Template</h3>
@@ -1316,7 +1300,6 @@ input:checked + .slider::before { transform: translateX(18px); }
   </div>
 </div>
 
-<!-- Confirm -->
 <div class="modal-overlay" id="confirmModal">
   <div class="modal-box">
     <h3 id="confirmTitle">Are you sure?</h3>
@@ -1328,11 +1311,10 @@ input:checked + .slider::before { transform: translateX(18px); }
   </div>
 </div>
 
-<!-- Settings -->
 <div class="modal-overlay" id="settingsModal">
   <div class="modal-box settings-modal-box">
     <div class="settings-header">
-      <h3>Settings</h3>
+      <h3>Settings <span class="version-badge">v1.1</span></h3>
       <button class="close-btn" data-close>&times;</button>
     </div>
 
@@ -1347,7 +1329,6 @@ input:checked + .slider::before { transform: translateX(18px); }
 
       <div class="settings-content">
 
-        <!-- Appearance -->
         <div class="tab-panel active" id="tab-appearance">
           <div class="section-title">Theme</div>
           <div class="setting-item">
@@ -1437,7 +1418,6 @@ input:checked + .slider::before { transform: translateX(18px); }
           </div>
         </div>
 
-        <!-- Editor -->
         <div class="tab-panel" id="tab-editor">
           <div class="section-title">Typography</div>
           <div class="setting-item">
@@ -1494,7 +1474,6 @@ input:checked + .slider::before { transform: translateX(18px); }
           </div>
         </div>
 
-        <!-- Dev mode -->
         <div class="tab-panel" id="tab-dev">
           <div class="section-title">Editor mode</div>
           <div class="setting-item">
@@ -1529,7 +1508,6 @@ input:checked + .slider::before { transform: translateX(18px); }
           </p>
         </div>
 
-        <!-- Key bindings -->
         <div class="tab-panel" id="tab-keybindings">
           <div class="section-title">Keyboard shortcuts</div>
           <table class="keybindings-list">
@@ -1555,7 +1533,6 @@ input:checked + .slider::before { transform: translateX(18px); }
           </table>
         </div>
 
-        <!-- Templates manager -->
         <div class="tab-panel" id="tab-templates">
           <div class="section-title">Your templates</div>
           <div id="templatesListContainer"></div>
@@ -1585,8 +1562,10 @@ input:checked + .slider::before { transform: translateX(18px); }
 /* ============================================================
    0. PDF worker
    ============================================================ */
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+if (window.pdfjsLib) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
 
 /* ============================================================
    1. Constants
@@ -1705,7 +1684,8 @@ def greet(name):
     else:
         print("Hello, world!")
 
-greet("Landen")` }
+if __name__ == "__main__":
+    greet("Landen")` }
 ];
 
 const DEFAULT_SETTINGS = {
@@ -1736,7 +1716,6 @@ const DEFAULT_SETTINGS = {
   syntaxHighlight: true
 };
 
-/* Element shortcuts */
 const $  = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
@@ -1745,8 +1724,6 @@ const gutter          = $('#gutter');
 const lineNumbersEl   = $('#lineNumbers');
 const editorInner     = $('#editorInner');
 const textColumn      = $('#textColumn');
-const highlightLayer  = $('#highlightLayer');
-const highlightCode   = $('#highlightCode');
 const undoBtn         = $('#undoBtn');
 const redoBtn         = $('#redoBtn');
 const lineNumbersBtn  = $('#lineNumbersBtn');
@@ -1776,6 +1753,7 @@ let autosaveTimer = null;
 let lineNumberFrame = null;
 let isDirty = false;
 let pythonLoading = null;
+let isComposing = false;
 
 let findMatches = [];
 let findCursor = -1;
@@ -1792,7 +1770,7 @@ const vim = {
 };
 
 /* ============================================================
-   3. Small utilities
+   3. Utilities
    ============================================================ */
 function showToast(message, ms = 2000) {
   toastEl.textContent = message;
@@ -1836,59 +1814,221 @@ function buildOptionLists() {
 }
 
 /* ============================================================
-   5. Syntax highlighting
+   5. Editor abstraction — the ONLY place that touches the DOM
+   ============================================================ */
+
+/* Read the plain text out of the contenteditable. */
+function getText() {
+  return editor.textContent || '';
+}
+
+/* Walk text nodes and count characters until we reach the target.
+   Returns the character offset of (container, offset). */
+function offsetFor(container, offset) {
+  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  let total = 0;
+  let node;
+  while ((node = walker.nextNode())) {
+    if (node === container) return total + offset;
+    total += node.textContent.length;
+  }
+  return total;
+}
+
+function getSelectionOffsets() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return { start: 0, end: 0 };
+  const range = sel.getRangeAt(0);
+  if (!editor.contains(range.startContainer) ||
+      !editor.contains(range.endContainer)) {
+    return { start: 0, end: 0 };
+  }
+  return {
+    start: offsetFor(range.startContainer, range.startOffset),
+    end: offsetFor(range.endContainer, range.endOffset)
+  };
+}
+
+function getCaretOffset() {
+  return getSelectionOffsets().start;
+}
+
+/* Place a selection at character offsets [start, end). */
+function setSelectionOffset(start, end) {
+  if (!editor.firstChild) {
+    /* Empty editor — just park the caret inside. */
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(true);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    return;
+  }
+
+  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  let total = 0;
+  let node;
+  let startNode = null, startOff = 0;
+  let endNode = null, endOff = 0;
+
+  while ((node = walker.nextNode())) {
+    const len = node.textContent.length;
+    if (startNode === null && total + len >= start) {
+      startNode = node;
+      startOff = start - total;
+    }
+    if (endNode === null && total + len >= end) {
+      endNode = node;
+      endOff = end - total;
+    }
+    if (startNode && endNode) break;
+    total += len;
+  }
+
+  const range = document.createRange();
+  if (startNode) {
+    range.setStart(startNode, Math.min(startOff, startNode.textContent.length));
+    if (endNode) {
+      range.setEnd(endNode, Math.min(endOff, endNode.textContent.length));
+    } else {
+      range.setEnd(startNode, Math.min(startOff, startNode.textContent.length));
+    }
+  } else {
+    range.selectNodeContents(editor);
+    range.collapse(false);
+  }
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+function setCaretOffset(offset) {
+  setSelectionOffset(offset, offset);
+}
+
+/* Rewrite the DOM with syntax-highlighted markup. Selection is
+   destroyed by this — callers must save/restore around it. */
+function renderHighlight() {
+  const text = getText();
+  const lang = settings.language;
+  const shouldHighlight =
+    settings.syntaxHighlight &&
+    lang !== 'none' &&
+    LANG_RULES[lang] &&
+    text.length > 0 &&
+    text.length <= HL_MAX_BYTES;
+
+  if (!shouldHighlight) {
+    /* Plain text keeps the editor :empty when text is '' so the
+       placeholder shows again. */
+    editor.textContent = text;
+    return;
+  }
+  editor.innerHTML = highlightCodeText(text, lang);
+}
+
+/* Save caret, re-render highlight, restore caret. */
+function renderPreservingCaret() {
+  if (document.activeElement === editor) {
+    const { start, end } = getSelectionOffsets();
+    renderHighlight();
+    setSelectionOffset(start, end);
+  } else {
+    renderHighlight();
+  }
+}
+
+/* Replace a [start, end) character range with str. */
+function replaceRange(start, end, str) {
+  const text = getText();
+  const newText = text.slice(0, start) + str + text.slice(end);
+  editor.textContent = newText;
+  renderHighlight();
+  setCaretOffset(start + str.length);
+}
+
+function focusEditor() {
+  editor.focus();
+}
+
+function selectAllEditor() {
+  editor.focus();
+  const range = document.createRange();
+  range.selectNodeContents(editor);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+/* ============================================================
+   6. Syntax highlighting
    ============================================================ */
 const LANG_RULES = {
   python: {
-    comment: /#[^\n]*/,
-    string: /"""[\s\S]*?"""|'''[\s\S]*?'''|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'/,
-    keyword: /\b(?:False|None|True|and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield)\b/,
-    builtin: /\b(?:abs|all|any|bin|bool|bytes|callable|chr|dict|dir|enumerate|eval|filter|float|format|frozenset|getattr|hasattr|hash|help|hex|id|input|int|isinstance|issubclass|iter|len|list|map|max|min|next|object|oct|open|ord|pow|print|range|repr|reversed|round|set|setattr|slice|sorted|str|sum|super|tuple|type|vars|zip)\b/,
-    number: /\b\d+\.?\d*(?:[eE][-+]?\d+)?\b/,
-    function: /(?<=\bdef\s+)\w+/
+    comment:   /#[^\n]*/,
+    string:    /[rbfu]{0,2}(?:"""[\s\S]*?"""|'''[\s\S]*?'''|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')/i,
+    decorator: /@[\w.]+/,
+    magic:     /\b(?:__\w+__|self|cls)\b/,
+    function:  /(?<=\bdef\s+)[A-Za-z_]\w*/,
+    class:     /(?<=\bclass\s+)[A-Za-z_]\w*/,
+    keyword:   /\b(?:False|None|True|and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield)\b/,
+    builtin:   /\b(?:abs|all|any|bin|bool|bytes|callable|chr|dict|dir|enumerate|eval|exec|filter|float|format|frozenset|getattr|hasattr|hash|help|hex|id|input|int|isinstance|issubclass|iter|len|list|locals|map|max|min|next|object|oct|open|ord|pow|print|range|repr|reversed|round|set|setattr|slice|sorted|str|sum|super|tuple|type|vars|zip)\b/,
+    number:    /\b(?:0[xX][0-9a-fA-F_]+|0[oO][0-7_]+|0[bB][01_]+|\d[\d_]*\.?\d*(?:[eE][-+]?\d+)?j?)\b/,
+    operator:  /[+\-*/%=<>!&|^~@]+/,
+    punct:     /[()\[\]{},;:.]/
   },
   javascript: {
-    comment: /\/\/[^\n]*|\/\*[\s\S]*?\*\//,
-    string: /`(?:\\.|[^`\\])*`|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'/,
-    keyword: /\b(?:async|await|break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|from|function|get|if|import|in|instanceof|let|new|of|return|set|static|super|switch|this|throw|try|typeof|var|void|while|with|yield)\b/,
-    builtin: /\b(?:Array|Boolean|Date|Error|Function|JSON|Map|Math|Number|Object|Promise|RegExp|Set|String|Symbol|console|document|window|undefined|null|true|false|NaN|Infinity)\b/,
-    number: /\b\d+\.?\d*(?:[eE][-+]?\d+)?\b/,
-    function: /\b\w+(?=\s*\()/
+    comment:   /\/\/[^\n]*|\/\*[\s\S]*?\*\//,
+    string:    /`(?:\\.|[^`\\])*`|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'/,
+    keyword:   /\b(?:async|await|break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|from|function|get|if|import|in|instanceof|let|new|of|return|set|static|super|switch|this|throw|try|typeof|var|void|while|with|yield)\b/,
+    builtin:   /\b(?:Array|Boolean|Date|Error|Function|JSON|Map|Math|Number|Object|Promise|RegExp|Set|String|Symbol|console|document|window|undefined|null|true|false|NaN|Infinity)\b/,
+    class:     /(?<=\bclass\s+)[A-Za-z_$][\w$]*/,
+    function:  /\b[A-Za-z_$][\w$]*(?=\s*\()/,
+    number:    /\b(?:0[xX][0-9a-fA-F]+|0[bB][01]+|0[oO][0-7]+|\d+\.?\d*(?:[eE][-+]?\d+)?)\b/,
+    operator:  /[+\-*/%=<>!&|^~?]+/,
+    punct:     /[()\[\]{},;:.]/
   },
   c: {
-    comment: /\/\/[^\n]*|\/\*[\s\S]*?\*\//,
-    string: /"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'/,
-    keyword: /\b(?:auto|break|case|char|const|continue|default|do|double|else|enum|extern|float|for|goto|if|inline|int|long|register|restrict|return|short|signed|sizeof|static|struct|switch|typedef|union|unsigned|void|volatile|while|_Bool)\b/,
-    builtin: /\b(?:NULL|EOF|size_t|printf|scanf|malloc|free|memcpy|memset|strlen|strcpy|strcmp|puts|fopen|fclose|fread|fwrite)\b/,
-    number: /\b(?:0[xX][0-9a-fA-F]+|\d+\.?\d*[fFlLuU]*)\b/,
-    preproc: /^\s*#\s*\w+/m,
-    function: /\b\w+(?=\s*\()/
+    comment:   /\/\/[^\n]*|\/\*[\s\S]*?\*\//,
+    string:    /"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'/,
+    preproc:   /^\s*#\s*\w+.*/m,
+    keyword:   /\b(?:auto|break|case|char|const|continue|default|do|double|else|enum|extern|float|for|goto|if|inline|int|long|register|restrict|return|short|signed|sizeof|static|struct|switch|typedef|union|unsigned|void|volatile|while|_Bool)\b/,
+    builtin:   /\b(?:NULL|EOF|size_t|ssize_t|printf|scanf|malloc|calloc|realloc|free|memcpy|memset|strlen|strcpy|strncpy|strcmp|strncmp|puts|fopen|fclose|fread|fwrite|fprintf|sprintf|snprintf)\b/,
+    number:    /\b(?:0[xX][0-9a-fA-F]+|\d+\.?\d*[fFlLuU]*)\b/,
+    function:  /\b[A-Za-z_]\w*(?=\s*\()/,
+    operator:  /[+\-*/%=<>!&|^~?]+/,
+    punct:     /[()\[\]{},;:.]/
   },
   html: {
-    comment: /<!--[\s\S]*?-->/,
-    string: /"[^"]*"|'[^']*'/,
-    tag: /<\/?[a-zA-Z][\w-]*|\/?>/,
-    attr: /\b[a-zA-Z-]+(?=\s*=)/
+    comment:   /<!--[\s\S]*?-->/,
+    doctype:   /<!DOCTYPE[^>]*>/i,
+    string:    /"[^"]*"|'[^']*'/,
+    tag:       /<\/?[a-zA-Z][\w-]*|\/?>/,
+    attr:      /\b[a-zA-Z_:][\w:.-]*(?=\s*=)/,
+    entity:    /&[a-zA-Z#][\w]*;/
   },
   css: {
-    comment: /\/\*[\s\S]*?\*\//,
-    string: /"[^"]*"|'[^']*'/,
-    keyword: /@[a-zA-Z-]+|!important/,
-    number: /\b\d+\.?\d*(?:px|em|rem|%|vh|vw|s|ms|deg|fr)?\b/,
-    property: /\b[a-z-]+(?=\s*:)/,
-    selector: /[^}{]*(?=\s*\{)/
+    comment:   /\/\*[\s\S]*?\*\//,
+    string:    /"[^"]*"|'[^']*'/,
+    atrule:    /@[a-zA-Z-]+/,
+    number:    /\b\d+\.?\d*(?:px|em|rem|%|vh|vw|vmin|vmax|s|ms|deg|rad|fr|pt|pc|cm|mm|in|ch|ex)?\b/,
+    property:  /\b[a-z-]+(?=\s*:)/,
+    keyword:   /!important/,
+    selector:  /[^}{;\n]+(?=\s*\{)/
   },
   json: {
-    string: /"(?:\\.|[^"\\])*"/,
-    number: /-?\b\d+\.?\d*(?:[eE][-+]?\d+)?\b/,
-    keyword: /\b(?:true|false|null)\b/
+    string:    /"(?:\\.|[^"\\])*"/,
+    number:    /-?\b\d+\.?\d*(?:[eE][-+]?\d+)?\b/,
+    keyword:   /\b(?:true|false|null)\b/,
+    punct:     /[\[\]{},:]/
   },
   markdown: {
-    heading: /^#{1,6}[^\n]*/m,
-    code: /`[^`]+`/,
-    bold: /\*\*[^*\n]+\*\*/,
-    italic: /\*[^*\n]+\*/,
-    link: /\[[^\]]+\]\([^)]+\)/
+    heading:   /^#{1,6}[^\n]*/m,
+    bold:      /\*\*[^*\n]+\*\*|__[^_\n]+__/,
+    italic:    /\*[^*\n]+\*|_[^_\n]+_/,
+    code:      /`[^`\n]+`/,
+    link:      /\[[^\]]+\]\([^)]+\)/
   }
 };
 
@@ -1909,44 +2049,45 @@ function highlightCodeText(code, lang) {
   if (lang === 'none' || !LANG_RULES[lang]) return escapeHtml(code);
   const compiled = compileLang(lang);
   if (!compiled) return escapeHtml(code);
+
   const { regex, names } = compiled;
   regex.lastIndex = 0;
+
   let result = '';
   let last = 0;
   let m;
+
   while ((m = regex.exec(code)) !== null) {
     if (m.index > last) result += escapeHtml(code.slice(last, m.index));
+
     let kind = 'plain';
     for (let i = 0; i < names.length; i++) {
       if (m[i + 1] !== undefined) { kind = names[i]; break; }
     }
-    result += `<span class="tok-${kind}">${escapeHtml(m[0])}</span>`;
+    if (m[0].length === 0) { regex.lastIndex++; continue; }
+
+    /* Preserve newlines inside a token span (multi-line strings/comments)
+       by splitting on '\n' and wrapping each segment. */
+    const token = m[0];
+    if (token.indexOf('\n') === -1) {
+      result += `<span class="tok-${kind}">${escapeHtml(token)}</span>`;
+    } else {
+      const parts = token.split('\n');
+      for (let i = 0; i < parts.length; i++) {
+        if (i > 0) result += '\n';
+        if (parts[i]) result += `<span class="tok-${kind}">${escapeHtml(parts[i])}</span>`;
+      }
+    }
     last = m.index + m[0].length;
-    if (m[0].length === 0) regex.lastIndex++;
   }
   if (last < code.length) result += escapeHtml(code.slice(last));
   return result;
 }
 
-function updateHighlightLayer() {
-  const showHL =
-    settings.syntaxHighlight &&
-    settings.language !== 'none' &&
-    LANG_RULES[settings.language];
-  editorInner.classList.toggle('hl-on', Boolean(showHL));
-  if (!showHL) return;
-  highlightCode.innerHTML = highlightCodeText(editor.value, settings.language) + '\n';
-  syncHighlightScroll();
-}
-
-function syncHighlightScroll() {
-  if (!editorInner.classList.contains('hl-on')) return;
-  highlightLayer.style.transform =
-    `translate(${-editor.scrollLeft}px, ${-editor.scrollTop}px)`;
-}
+const HL_MAX_BYTES = 250_000;
 
 /* ============================================================
-   6. Settings
+   7. Settings
    ============================================================ */
 function loadSettings() {
   try {
@@ -1999,16 +2140,14 @@ function applySettings() {
 
   syncMenuChecks();
 
-  const statusPaper = $('#statusPaper');
-  statusPaper.textContent = settings.paperStyle === 'none' ? '' : `Paper: ${PAPER_LABELS[settings.paperStyle]}`;
-  const statusLang = $('#statusLang');
-  statusLang.textContent = settings.language === 'none' ? '' : LANG_LABELS[settings.language] || '';
+  $('#statusPaper').textContent = settings.paperStyle === 'none' ? '' : `Paper: ${PAPER_LABELS[settings.paperStyle]}`;
+  $('#statusLang').textContent = settings.language === 'none' ? '' : LANG_LABELS[settings.language] || '';
 
   gutter.style.display = settings.showLineNumbers ? '' : 'none';
   runLangLabel.textContent = 'Output — ' + (LANG_LABELS[settings.language] || 'Text');
 
   updateVimStatus();
-  updateHighlightLayer();
+  renderHighlight();
   scheduleLineNumbers();
 }
 
@@ -2084,31 +2223,28 @@ function readSettingsForm() {
 }
 
 /* ============================================================
-   7. Vim mode
+   8. Vim mode
    ============================================================ */
 function updateVimStatus() {
   const el = $('#statusVim');
   vim.enabled = settings.vimMode;
   if (!vim.enabled) {
     el.style.display = 'none';
-    editor.readOnly = false;
+    editor.setAttribute('contenteditable', 'true');
     editor.classList.remove('vim-normal');
     return;
   }
   el.style.display = '';
-  if (vim.mode === 'command') {
-    el.textContent = ':' + vim.commandBuffer;
-  } else {
-    el.textContent = '-- ' + vim.mode.toUpperCase() + ' --';
-  }
-  editor.readOnly = vim.mode !== 'insert';
+  if (vim.mode === 'command') el.textContent = ':' + vim.commandBuffer;
+  else el.textContent = '-- ' + vim.mode.toUpperCase() + ' --';
+  editor.setAttribute('contenteditable', vim.mode === 'insert' ? 'true' : 'false');
   editor.classList.toggle('vim-normal', vim.mode !== 'insert');
 }
 function vimSetCaret(pos) {
-  editor.setSelectionRange(pos, pos);
+  setCaretOffset(pos);
   const cs = getComputedStyle(editor);
   const lineHeight = parseFloat(cs.lineHeight) || 20;
-  const text = editor.value.slice(0, pos);
+  const text = getText().slice(0, pos);
   const lineIndex = (text.match(/\n/g) || []).length;
   const y = lineIndex * lineHeight;
   const top = editor.scrollTop;
@@ -2116,11 +2252,10 @@ function vimSetCaret(pos) {
   if (y < top) editor.scrollTop = y;
   else if (y > bottom) editor.scrollTop = y - editor.clientHeight + lineHeight * 3;
 }
-function vimMoveLeft() { const p = editor.selectionStart; if (p > 0) vimSetCaret(p - 1); }
-function vimMoveRight() { const p = editor.selectionStart; if (p < editor.value.length) vimSetCaret(p + 1); }
+function vimMoveLeft() { const p = getCaretOffset(); if (p > 0) vimSetCaret(p - 1); }
+function vimMoveRight() { const p = getCaretOffset(); if (p < getText().length) vimSetCaret(p + 1); }
 function vimMoveUp() {
-  const v = editor.value;
-  const pos = editor.selectionStart;
+  const v = getText(), pos = getCaretOffset();
   const lineStart = v.lastIndexOf('\n', pos - 1) + 1;
   if (lineStart === 0) return;
   const col = pos - lineStart;
@@ -2129,8 +2264,7 @@ function vimMoveUp() {
   vimSetCaret(Math.min(prevStart + col, prevEnd));
 }
 function vimMoveDown() {
-  const v = editor.value;
-  const pos = editor.selectionStart;
+  const v = getText(), pos = getCaretOffset();
   const lineStart = v.lastIndexOf('\n', pos - 1) + 1;
   const col = pos - lineStart;
   const lineEnd = v.indexOf('\n', pos);
@@ -2141,57 +2275,50 @@ function vimMoveDown() {
   vimSetCaret(Math.min(nextStart + col, nextEnd));
 }
 function vimMoveWordForward() {
-  const v = editor.value;
-  let p = editor.selectionStart;
+  const v = getText(); let p = getCaretOffset();
   while (p < v.length && /\w/.test(v[p])) p++;
   while (p < v.length && !/\w/.test(v[p])) p++;
   vimSetCaret(p);
 }
 function vimMoveWordBack() {
-  const v = editor.value;
-  let p = editor.selectionStart;
+  const v = getText(); let p = getCaretOffset();
   if (p > 0) p--;
   while (p > 0 && !/\w/.test(v[p])) p--;
   while (p > 0 && /\w/.test(v[p - 1])) p--;
   vimSetCaret(p);
 }
 function vimMoveLineStart() {
-  const v = editor.value;
-  const p = editor.selectionStart;
+  const v = getText(), p = getCaretOffset();
   vimSetCaret(v.lastIndexOf('\n', p - 1) + 1);
 }
 function vimMoveLineEnd() {
-  const v = editor.value;
-  const p = editor.selectionStart;
-  let lineEnd = v.indexOf('\n', p);
-  if (lineEnd === -1) lineEnd = v.length;
-  vimSetCaret(lineEnd);
+  const v = getText(), p = getCaretOffset();
+  let e = v.indexOf('\n', p);
+  if (e === -1) e = v.length;
+  vimSetCaret(e);
 }
 function vimGotoTop() { vimSetCaret(0); }
-function vimGotoBottom() { vimSetCaret(editor.value.length); }
-
+function vimGotoBottom() { vimSetCaret(getText().length); }
 function vimDeleteChar() {
-  const p = editor.selectionStart;
-  if (p >= editor.value.length) return;
-  editor.setRangeText('', p, p + 1, 'end');
+  const p = getCaretOffset();
+  if (p >= getText().length) return;
+  replaceRange(p, p + 1, '');
   onContentChanged(true);
-  vimSetCaret(Math.min(p, editor.value.length));
+  vimSetCaret(Math.min(p, getText().length));
 }
 function vimDeleteLine() {
-  const v = editor.value;
-  const p = editor.selectionStart;
+  const v = getText(), p = getCaretOffset();
   const lineStart = v.lastIndexOf('\n', p - 1) + 1;
-  let lineEnd = v.indexOf('\n', p);
-  let cutEnd = lineEnd === -1 ? v.length : lineEnd + 1;
+  const lineEnd = v.indexOf('\n', p);
+  const cutEnd = lineEnd === -1 ? v.length : lineEnd + 1;
   vim.register = v.slice(lineStart, lineEnd === -1 ? v.length : lineEnd);
   vim.registerIsLine = true;
-  editor.setRangeText('', lineStart, cutEnd, 'end');
+  replaceRange(lineStart, cutEnd, '');
   onContentChanged(true);
-  vimSetCaret(Math.min(lineStart, editor.value.length));
+  vimSetCaret(Math.min(lineStart, getText().length));
 }
 function vimYankLine() {
-  const v = editor.value;
-  const p = editor.selectionStart;
+  const v = getText(), p = getCaretOffset();
   const lineStart = v.lastIndexOf('\n', p - 1) + 1;
   const lineEnd = v.indexOf('\n', p);
   vim.register = v.slice(lineStart, lineEnd === -1 ? v.length : lineEnd);
@@ -2200,39 +2327,37 @@ function vimYankLine() {
 }
 function vimPaste() {
   if (!vim.register) return;
-  const p = editor.selectionStart;
+  const p = getCaretOffset();
   if (vim.registerIsLine) {
-    const v = editor.value;
+    const v = getText();
     let lineEnd = v.indexOf('\n', p);
     if (lineEnd === -1) lineEnd = v.length;
-    editor.setRangeText('\n' + vim.register, lineEnd, lineEnd, 'end');
+    replaceRange(lineEnd, lineEnd, '\n' + vim.register);
   } else {
-    editor.setRangeText(vim.register, p, p, 'end');
+    replaceRange(p, p, vim.register);
   }
   onContentChanged(true);
 }
 function vimOpenLineBelow() {
-  const p = editor.selectionStart;
-  const v = editor.value;
+  const p = getCaretOffset(), v = getText();
   let lineEnd = v.indexOf('\n', p);
   if (lineEnd === -1) lineEnd = v.length;
-  editor.setRangeText('\n', lineEnd, lineEnd, 'end');
+  replaceRange(lineEnd, lineEnd, '\n');
   vim.mode = 'insert';
   updateVimStatus();
   vimSetCaret(lineEnd + 1);
   onContentChanged(true);
 }
 function vimOpenLineAbove() {
-  const p = editor.selectionStart;
-  const v = editor.value;
+  const p = getCaretOffset(), v = getText();
   const lineStart = v.lastIndexOf('\n', p - 1) + 1;
-  editor.setRangeText('\n', lineStart, lineStart, 'end');
+  replaceRange(lineStart, lineStart, '\n');
   vim.mode = 'insert';
   updateVimStatus();
   vimSetCaret(lineStart);
   onContentChanged(true);
 }
-function vimEnterInsert() { vim.mode = 'insert'; updateVimStatus(); }
+function vimEnterInsert() { vim.mode = 'insert'; updateVimStatus(); focusEditor(); }
 
 function vimExecuteCommand(cmd) {
   const c = cmd.trim();
@@ -2253,7 +2378,7 @@ function handleVimKeydown(e) {
       e.preventDefault();
       vim.mode = 'normal';
       vim.pending = '';
-      const p = editor.selectionStart;
+      const p = getCaretOffset();
       if (p > 0) vimSetCaret(p - 1);
       updateVimStatus();
     }
@@ -2291,22 +2416,20 @@ function handleVimKeydown(e) {
     if (combo === 'yy') { vimYankLine(); return; }
     if (combo === 'gg') { vimGotoTop(); return; }
     if (combo === 'dw') {
-      const p = editor.selectionStart;
-      const v = editor.value;
+      const p = getCaretOffset(), v = getText();
       let end = p;
       while (end < v.length && /\w/.test(v[end])) end++;
       while (end < v.length && !/\w/.test(v[end]) && v[end] !== '\n') end++;
-      editor.setRangeText('', p, end, 'end');
+      replaceRange(p, end, '');
       onContentChanged(true);
       vimSetCaret(p);
       return;
     }
     if (combo === 'cw') {
-      const p = editor.selectionStart;
-      const v = editor.value;
+      const p = getCaretOffset(), v = getText();
       let end = p;
       while (end < v.length && /\w/.test(v[end])) end++;
-      editor.setRangeText('', p, end, 'end');
+      replaceRange(p, end, '');
       onContentChanged(true);
       vim.mode = 'insert';
       updateVimStatus();
@@ -2351,7 +2474,7 @@ function handleVimKeydown(e) {
 }
 
 /* ============================================================
-   8. Templates
+   9. Templates
    ============================================================ */
 function loadTemplates() {
   try {
@@ -2418,11 +2541,10 @@ function removeTemplate(index) {
 }
 
 /* ============================================================
-   9. Line numbers
+   10. Line numbers
    ============================================================ */
 let measureCtx = null;
 let cachedFont = '';
-
 function countVisualRows(text, maxWidth, font) {
   if (!settings.wordWrap) return 1;
   if (!text) return 1;
@@ -2440,7 +2562,7 @@ function scheduleLineNumbers() {
 }
 function renderLineNumbers() {
   if (!settings.showLineNumbers) return;
-  const lines = editor.value.split('\n');
+  const lines = getText().split('\n');
   const cs = getComputedStyle(editor);
   const lineHeight = parseFloat(cs.lineHeight) || (settings.fontSize * settings.lineHeight);
   const font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
@@ -2461,14 +2583,14 @@ function syncGutterScroll() {
 }
 
 /* ============================================================
-   10. History
+   11. History
    ============================================================ */
 function updateHistoryButtons() {
   undoBtn.disabled = historyIndex <= 0;
   redoBtn.disabled = historyIndex >= history.length - 1;
 }
 function pushHistory() {
-  const current = editor.value;
+  const current = getText();
   if (history[historyIndex] === current) return;
   history = history.slice(0, historyIndex + 1);
   history.push(current);
@@ -2479,14 +2601,16 @@ function pushHistory() {
 function undo() {
   if (historyIndex <= 0) return;
   historyIndex--;
-  editor.value = history[historyIndex];
+  editor.textContent = history[historyIndex];
+  renderHighlight();
   updateHistoryButtons();
   afterProgrammaticChange();
 }
 function redo() {
   if (historyIndex >= history.length - 1) return;
   historyIndex++;
-  editor.value = history[historyIndex];
+  editor.textContent = history[historyIndex];
+  renderHighlight();
   updateHistoryButtons();
   afterProgrammaticChange();
 }
@@ -2494,11 +2618,10 @@ function afterProgrammaticChange() {
   updateStatusBar();
   scheduleLineNumbers();
   scheduleAutosave();
-  updateHighlightLayer();
 }
 
 /* ============================================================
-   11. Change pipeline
+   12. Change pipeline
    ============================================================ */
 function onContentChanged(immediate) {
   markDirty(true);
@@ -2506,25 +2629,70 @@ function onContentChanged(immediate) {
   scheduleLineNumbers();
   scheduleAutosave();
   updateFormatButtons();
-  updateHighlightLayer();
   clearTimeout(historyTimer);
   if (immediate) pushHistory();
   else historyTimer = setTimeout(pushHistory, 400);
 }
-editor.addEventListener('input', () => onContentChanged(false));
+
+/* The heavy lifting: on every edit, re-render the highlight
+   in place. Because it's a single contenteditable layer, the
+   text and the colours are always in lock-step. */
+editor.addEventListener('input', (e) => {
+  if (e.isComposing || isComposing) return;
+  renderPreservingCaret();
+  onContentChanged(false);
+});
+
+editor.addEventListener('compositionstart', () => { isComposing = true; });
+editor.addEventListener('compositionend', () => {
+  isComposing = false;
+  renderPreservingCaret();
+  onContentChanged(false);
+});
+
+/* Intercept Enter so we insert '\n' rather than a <div>/<br>. */
+editor.addEventListener('beforeinput', (e) => {
+  if (e.inputType === 'insertParagraph' || e.inputType === 'insertLineBreak') {
+    e.preventDefault();
+    const { start, end } = getSelectionOffsets();
+    let insert = '\n';
+    if (e.inputType === 'insertParagraph' && settings.autoIndent) {
+      const text = getText();
+      const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+      const line = text.slice(lineStart, start);
+      const indent = (line.match(/^[ \t]*/) || [''])[0];
+      insert = '\n' + indent;
+    }
+    replaceRange(start, end, insert);
+    onContentChanged(true);
+  }
+});
+
+/* Plain-text paste. */
+editor.addEventListener('paste', (e) => {
+  e.preventDefault();
+  const cd = e.clipboardData || window.clipboardData;
+  if (!cd) return;
+  const text = cd.getData('text/plain');
+  if (!text) return;
+  const { start, end } = getSelectionOffsets();
+  replaceRange(start, end, text);
+  onContentChanged(true);
+});
 
 /* ============================================================
-   12. Status bar
+   13. Status bar
    ============================================================ */
 function updateStatusBar() {
-  const text = editor.value;
-  const pos = editor.selectionStart;
+  const text = getText();
+  const pos = getCaretOffset();
   let line = 1;
   let idx = -1;
   while ((idx = text.indexOf('\n', idx + 1)) !== -1 && idx < pos) line++;
   const col = pos - text.lastIndexOf('\n', pos - 1);
   $('#statusPos').textContent = `Ln ${line}, Col ${col}`;
-  const selLen = Math.abs(editor.selectionEnd - editor.selectionStart);
+  const { start, end } = getSelectionOffsets();
+  const selLen = Math.abs(end - start);
   const selEl = $('#statusSel');
   selEl.style.display = selLen ? '' : 'none';
   selEl.textContent = `Sel ${selLen}`;
@@ -2537,6 +2705,10 @@ function updateStatusBar() {
 ['click', 'keyup', 'select', 'input', 'focus'].forEach(evt =>
   editor.addEventListener(evt, updateStatusBar)
 );
+document.addEventListener('selectionchange', () => {
+  if (document.activeElement === editor) updateStatusBar();
+});
+
 function markDirty(dirty) {
   if (isDirty === dirty) return;
   isDirty = dirty;
@@ -2544,7 +2716,7 @@ function markDirty(dirty) {
 }
 
 /* ============================================================
-   13. Autosave
+   14. Autosave
    ============================================================ */
 function scheduleAutosave() {
   if (!settings.autosave) return;
@@ -2553,11 +2725,11 @@ function scheduleAutosave() {
 }
 
 /* ============================================================
-   14. Document actions
+   15. Document actions
    ============================================================ */
 function saveLocally(silent = false) {
   try {
-    localStorage.setItem(STORAGE.doc, editor.value);
+    localStorage.setItem(STORAGE.doc, getText());
     markDirty(false);
     if (!silent) showToast('Document saved');
   } catch {
@@ -2565,63 +2737,66 @@ function saveLocally(silent = false) {
   }
 }
 function resetDocument() {
-  editor.value = '';
+  editor.textContent = '';
   history = [''];
   historyIndex = 0;
   updateHistoryButtons();
-  localStorage.removeItem(STORAGE.doc);
+  try { localStorage.removeItem(STORAGE.doc); } catch {}
   markDirty(false);
   afterProgrammaticChange();
   showToast('New document created');
 }
 function newFile() {
-  if (!editor.value) { resetDocument(); return; }
+  if (!getText()) { resetDocument(); return; }
   showConfirm('New document', 'Discard the current document?', resetDocument);
 }
 function printFile() { window.print(); }
 
 /* ============================================================
-   15. Clipboard
+   16. Clipboard
    ============================================================ */
-function selectAllText() { editor.focus(); editor.select(); }
+function selectAllText() { selectAllEditor(); }
 function cutText() {
-  editor.focus();
-  const { selectionStart: s, selectionEnd: e } = editor;
-  if (s === e) { showToast('Nothing selected'); return; }
-  const selected = editor.value.slice(s, e);
+  const { start, end } = getSelectionOffsets();
+  if (start === end) { showToast('Nothing selected'); return; }
+  const selected = getText().slice(start, end);
+  if (!navigator.clipboard) { showToast('Clipboard unavailable'); return; }
   navigator.clipboard.writeText(selected).then(() => {
-    editor.setRangeText('', s, e, 'end');
+    replaceRange(start, end, '');
     onContentChanged(true);
     showToast('Cut to clipboard');
   }).catch(() => showToast('Clipboard unavailable'));
 }
 function copyText() {
-  editor.focus();
-  const { selectionStart: s, selectionEnd: e } = editor;
-  const text = s === e ? editor.value : editor.value.slice(s, e);
+  const { start, end } = getSelectionOffsets();
+  const text = start === end ? getText() : getText().slice(start, end);
+  if (!navigator.clipboard) { showToast('Clipboard unavailable'); return; }
   navigator.clipboard.writeText(text).then(() => {
-    showToast(s === e ? 'All text copied' : 'Copied to clipboard');
+    showToast(start === end ? 'All text copied' : 'Copied to clipboard');
   }).catch(() => showToast('Clipboard unavailable'));
 }
 function pasteText() {
-  editor.focus();
+  if (!navigator.clipboard || !navigator.clipboard.readText) {
+    showToast('Clipboard access denied — use Ctrl+V');
+    return;
+  }
   navigator.clipboard.readText().then(clipText => {
-    editor.setRangeText(clipText, editor.selectionStart, editor.selectionEnd, 'end');
+    const { start, end } = getSelectionOffsets();
+    replaceRange(start, end, clipText);
     onContentChanged(true);
   }).catch(() => showToast('Clipboard access denied — use Ctrl+V'));
 }
 
 /* ============================================================
-   16. Inline formatting (B / I / U)
+   17. Inline formatting
    ============================================================ */
 function applyInlineMark(kind) {
   const mark = INLINE_MARKS[kind];
   if (!mark) return;
 
   const { before, after } = mark;
-  const value = editor.value;
-  const s = editor.selectionStart;
-  const e = editor.selectionEnd;
+  const value = getText();
+  const { start: s, end: e } = getSelectionOffsets();
   const selected = value.slice(s, e);
 
   const scrollTop = editor.scrollTop;
@@ -2658,9 +2833,10 @@ function applyInlineMark(kind) {
     newEnd = newStart + selected.length;
   }
 
-  editor.value = newValue;
   editor.focus();
-  editor.setSelectionRange(newStart, newEnd);
+  editor.textContent = newValue;
+  renderHighlight();
+  setSelectionOffset(newStart, newEnd);
   editor.scrollTop = scrollTop;
   editor.scrollLeft = scrollLeft;
 
@@ -2669,9 +2845,8 @@ function applyInlineMark(kind) {
 }
 
 function updateFormatButtons() {
-  const value = editor.value;
-  const s = editor.selectionStart;
-  const e = editor.selectionEnd;
+  const value = getText();
+  const { start: s, end: e } = getSelectionOffsets();
 
   const isActive = (kind) => {
     if (kind === 'bold') {
@@ -2693,55 +2868,54 @@ function updateFormatButtons() {
 }
 
 /* ============================================================
-   17. Line-level helpers
+   18. Line-level helpers
    ============================================================ */
 function getLineBounds() {
-  const text = editor.value;
-  const start = text.lastIndexOf('\n', editor.selectionStart - 1) + 1;
-  let end = text.indexOf('\n', editor.selectionEnd);
-  if (end === -1) end = text.length;
-  return { start, end };
+  const text = getText();
+  const { start: caret, end } = getSelectionOffsets();
+  const start = text.lastIndexOf('\n', caret - 1) + 1;
+  let lineEnd = text.indexOf('\n', end);
+  if (lineEnd === -1) lineEnd = text.length;
+  return { start, end: lineEnd };
 }
 function duplicateLine() {
   const { start, end } = getLineBounds();
-  const block = editor.value.slice(start, end);
-  editor.setRangeText('\n' + block, end, end, 'end');
+  const block = getText().slice(start, end);
+  replaceRange(end, end, '\n' + block);
   onContentChanged(true);
 }
 function deleteLine() {
-  const text = editor.value;
+  const text = getText();
   const { start, end } = getLineBounds();
   let from = start, to = end;
   if (end < text.length) to = end + 1;
   else if (start > 0) from = start - 1;
-  editor.setRangeText('', from, to, 'end');
+  replaceRange(from, to, '');
   onContentChanged(true);
 }
 function indentSelection(outdent) {
-  const hadSelection = editor.selectionStart !== editor.selectionEnd;
   const { start, end } = getLineBounds();
   const unit = ' '.repeat(settings.tabSize);
-  const block = editor.value.slice(start, end).split('\n').map(line => {
+  const block = getText().slice(start, end).split('\n').map(line => {
     if (!outdent) return unit + line;
     if (line.startsWith('\t')) return line.slice(1);
     let i = 0;
     while (i < unit.length && line[i] === ' ') i++;
     return line.slice(i);
   }).join('\n');
-  editor.setRangeText(block, start, end, hadSelection ? 'select' : 'end');
+  replaceRange(start, end, block);
   onContentChanged(true);
 }
 function transformCase(fn) {
-  const s = editor.selectionStart;
-  const e = editor.selectionEnd;
+  const { start: s, end: e } = getSelectionOffsets();
   const hasSel = e > s;
   const from = hasSel ? s : 0;
-  const to = hasSel ? e : editor.value.length;
-  const original = editor.value.slice(from, to);
+  const to = hasSel ? e : getText().length;
+  const original = getText().slice(from, to);
   const changed = fn(original);
   if (changed === original) return;
-  editor.setRangeText(changed, from, to, hasSel ? 'select' : 'end');
-  editor.focus();
+  replaceRange(from, to, changed);
+  if (hasSel) setSelectionOffset(from, from + changed.length);
   onContentChanged(true);
 }
 function insertDateTime() {
@@ -2750,16 +2924,18 @@ function insertDateTime() {
     year: 'numeric', month: 'short', day: 'numeric',
     hour: '2-digit', minute: '2-digit'
   });
-  editor.setRangeText(stamp, editor.selectionStart, editor.selectionEnd, 'end');
+  const { start, end } = getSelectionOffsets();
+  replaceRange(start, end, stamp);
   onContentChanged(true);
 }
 
 /* ============================================================
-   18. Find & replace
+   19. Find & replace
    ============================================================ */
 function openFindModal() {
   openModal('findModal');
-  findInput.value = editor.value.slice(editor.selectionStart, editor.selectionEnd).split('\n')[0];
+  const { start, end } = getSelectionOffsets();
+  findInput.value = getText().slice(start, end).split('\n')[0];
   refreshFindMatches();
   findInput.focus();
   findInput.select();
@@ -2769,7 +2945,7 @@ function refreshFindMatches() {
   findMatches = [];
   findCursor = -1;
   if (!term) { findMeta.textContent = ''; return; }
-  const hay = editor.value.toLowerCase();
+  const hay = getText().toLowerCase();
   const needle = term.toLowerCase();
   let i = hay.indexOf(needle);
   while (i !== -1) {
@@ -2786,32 +2962,35 @@ function stepFind(direction) {
   findCursor = (findCursor + direction + findMatches.length) % findMatches.length;
   const index = findMatches[findCursor];
   editor.focus();
-  editor.setSelectionRange(index, index + findInput.value.length);
+  setSelectionOffset(index, index + findInput.value.length);
   findMeta.textContent = `${findCursor + 1} of ${findMatches.length}`;
 }
 function openReplaceModal() {
   openModal('replaceModal');
-  $('#replaceFindInput').value = editor.value.slice(editor.selectionStart, editor.selectionEnd).split('\n')[0];
+  const { start, end } = getSelectionOffsets();
+  $('#replaceFindInput').value = getText().slice(start, end).split('\n')[0];
   $('#replaceFindInput').focus();
 }
 function executeReplaceAll() {
   const find = $('#replaceFindInput').value;
   const replace = $('#replaceWithInput').value;
   if (!find) { showToast('Enter text to find'); return; }
-  if (!editor.value.includes(find)) { showToast('No matches found'); return; }
-  const count = editor.value.split(find).length - 1;
-  editor.value = editor.value.split(find).join(replace);
+  const text = getText();
+  if (!text.includes(find)) { showToast('No matches found'); return; }
+  const count = text.split(find).length - 1;
+  editor.textContent = text.split(find).join(replace);
+  renderHighlight();
   onContentChanged(true);
   closeModal('replaceModal');
   showToast(`Replaced ${count} occurrence${count === 1 ? '' : 's'}`);
 }
 
 /* ============================================================
-   19. Go to line
+   20. Go to line
    ============================================================ */
 function openGotoModal() {
-  const text = editor.value;
-  const pos = editor.selectionStart;
+  const text = getText();
+  const pos = getCaretOffset();
   let line = 1;
   for (let i = 0; i < pos; i++) if (text[i] === '\n') line++;
   $('#gotoInput').value = line;
@@ -2820,19 +2999,19 @@ function openGotoModal() {
   $('#gotoInput').select();
 }
 function executeGoto() {
-  const lines = editor.value.split('\n');
+  const lines = getText().split('\n');
   const requested = parseInt($('#gotoInput').value, 10);
   if (isNaN(requested)) return;
   const target = Math.min(Math.max(1, requested), lines.length);
   let index = 0;
   for (let i = 0; i < target - 1; i++) index += lines[i].length + 1;
   editor.focus();
-  editor.setSelectionRange(index, index + lines[target - 1].length);
+  setSelectionOffset(index, index + lines[target - 1].length);
   closeModal('gotoModal');
 }
 
 /* ============================================================
-   20. File import / export
+   21. File import / export
    ============================================================ */
 function triggerUpload() { fileInput.click(); }
 function triggerBgUpload() { bgFileInput.click(); }
@@ -2844,6 +3023,7 @@ async function importFile(event) {
   const ext = '.' + file.name.split('.').pop().toLowerCase();
 
   if (ext === '.pdf') {
+    if (!window.pdfjsLib) { showToast('PDF support not loaded (offline?)'); return; }
     try {
       const buffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
@@ -2853,7 +3033,8 @@ async function importFile(event) {
         const content = await page.getTextContent();
         pages.push(content.items.map(item => item.str).join(' '));
       }
-      editor.value = pages.join('\n\n').trim();
+      editor.textContent = pages.join('\n\n').trim();
+      renderHighlight();
       onContentChanged(true);
       showToast('PDF text imported');
     } catch { showToast('Could not extract text from that PDF'); }
@@ -2875,7 +3056,8 @@ async function importFile(event) {
           for (let i = 0; i < bytes.length; i++) {
             hex += bytes[i].toString(16).padStart(2, '0') + ' ';
           }
-          editor.value = hex.trim();
+          editor.textContent = hex.trim();
+          renderHighlight();
           onContentChanged(true);
         };
         reader.readAsArrayBuffer(file);
@@ -2885,7 +3067,8 @@ async function importFile(event) {
 
   const reader = new FileReader();
   reader.onload = e => {
-    editor.value = e.target.result;
+    editor.textContent = e.target.result;
+    renderHighlight();
     onContentChanged(true);
     showToast('File imported');
   };
@@ -2931,9 +3114,10 @@ function executeExport() {
   }
   if (!ext) ext = '.txt';
   const filename = baseName + ext;
-  const content = editor.value;
+  const content = getText();
 
   if (ext.toLowerCase() === '.pdf') {
+    if (!window.jspdf) { showToast('PDF export library not loaded'); return; }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     const lines = doc.splitTextToSize(content, 180);
@@ -2955,7 +3139,7 @@ function executeExport() {
 }
 
 /* ============================================================
-   21. Templates modal
+   22. Templates modal
    ============================================================ */
 function openTemplateModal() {
   if (!templates.length) { showToast('No templates available'); return; }
@@ -2966,12 +3150,13 @@ function loadSelectedTemplate() {
   const tpl = templates.find(t => t.id === id);
   if (!tpl) return;
   const apply = () => {
-    editor.value = tpl.content;
+    editor.textContent = tpl.content;
+    renderHighlight();
     onContentChanged(true);
     closeModal('templateModal');
   };
   closeModal('templateModal');
-  if (editor.value.length > 0) {
+  if (getText().length > 0) {
     showConfirm('Replace content', 'Replace the current document with this template?', apply);
   } else {
     apply();
@@ -2979,7 +3164,7 @@ function loadSelectedTemplate() {
 }
 
 /* ============================================================
-   22. Confirm modal
+   23. Confirm modal
    ============================================================ */
 let confirmCallback = null;
 function showConfirm(title, message, onConfirm) {
@@ -3000,7 +3185,7 @@ $('#confirmCancelBtn').addEventListener('click', () => {
 });
 
 /* ============================================================
-   23. Zoom & paper
+   24. Zoom & paper
    ============================================================ */
 function setFontSize(px) {
   settings.fontSize = Math.min(48, Math.max(8, px));
@@ -3026,7 +3211,7 @@ function cyclePaper() {
 }
 
 /* ============================================================
-   24. Code runner
+   25. Code runner
    ============================================================ */
 function toggleRunPanel() {
   const open = !runPanel.classList.contains('open');
@@ -3060,7 +3245,7 @@ function updateRunPanelLanguageHint() {
 
 async function runCode() {
   const lang = settings.language;
-  const code = editor.value;
+  const code = getText();
   if (!runPanel.classList.contains('open')) toggleRunPanel();
   runOutput.textContent = '';
   runOutput.classList.remove('show');
@@ -3172,7 +3357,7 @@ window.addEventListener('message', (e) => {
 });
 
 /* ============================================================
-   25. Action registry
+   26. Action registry
    ============================================================ */
 const ACTIONS = {
   new: newFile,
@@ -3248,7 +3433,7 @@ document.addEventListener('click', (event) => {
 });
 
 /* ============================================================
-   26. Dropdowns & tabs
+   27. Dropdowns & tabs
    ============================================================ */
 function closeAllDropdowns() {
   $$('.dropdown.open').forEach(d => d.classList.remove('open'));
@@ -3277,7 +3462,7 @@ $$('.tab-btn').forEach(btn => {
 });
 
 /* ============================================================
-   27. Keyboard shortcuts (global)
+   28. Keyboard shortcuts
    ============================================================ */
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
@@ -3322,7 +3507,7 @@ $('#replaceFindInput').addEventListener('keydown', (e) => {
 });
 
 /* ============================================================
-   28. Textarea behaviour
+   29. Editor keydown: Tab, auto-indent
    ============================================================ */
 editor.addEventListener('keydown', (event) => {
   handleVimKeydown(event);
@@ -3330,56 +3515,40 @@ editor.addEventListener('keydown', (event) => {
 
   if (event.key === 'Tab') {
     event.preventDefault();
+    const { start, end } = getSelectionOffsets();
     if (event.shiftKey) indentSelection(true);
-    else if (editor.selectionStart !== editor.selectionEnd) indentSelection(false);
+    else if (start !== end) indentSelection(false);
     else {
       const unit = ' '.repeat(settings.tabSize);
-      editor.setRangeText(unit, editor.selectionStart, editor.selectionEnd, 'end');
+      replaceRange(start, end, unit);
       onContentChanged(true);
     }
     return;
   }
-
-  if (event.key === 'Enter' && settings.autoIndent && !event.shiftKey) {
-    const pos = editor.selectionStart;
-    if (pos !== editor.selectionEnd) return;
-    const lineStart = editor.value.lastIndexOf('\n', pos - 1) + 1;
-    const line = editor.value.slice(lineStart, pos);
-    const indent = (line.match(/^[ \t]*/) || [''])[0];
-    if (indent) {
-      event.preventDefault();
-      editor.setRangeText('\n' + indent, pos, pos, 'end');
-      onContentChanged(true);
-    }
-  }
+  /* Enter is handled in `beforeinput`. */
 });
 
-editor.addEventListener('scroll', () => {
-  syncGutterScroll();
-  syncHighlightScroll();
-});
+editor.addEventListener('scroll', syncGutterScroll);
 
 ['keyup', 'mouseup', 'click', 'select', 'input'].forEach(evt =>
   editor.addEventListener(evt, updateFormatButtons)
 );
+document.addEventListener('selectionchange', () => {
+  if (document.activeElement === editor) updateFormatButtons();
+});
 
-const resizeObserver = new ResizeObserver(() => {
-  scheduleLineNumbers();
-  requestAnimationFrame(syncHighlightScroll);
+/* When the editor loses focus empty, keep the placeholder visible. */
+editor.addEventListener('blur', () => {
+  if (!getText()) editor.textContent = '';
 });
+
+const resizeObserver = new ResizeObserver(() => scheduleLineNumbers());
 resizeObserver.observe(editor);
-window.addEventListener('resize', () => {
-  scheduleLineNumbers();
-  syncHighlightScroll();
-});
+window.addEventListener('resize', scheduleLineNumbers);
 
 /* ============================================================
-   29. Wire up remaining controls
+   30. Wire up remaining controls
    ============================================================ */
-
-/* --- B / I / U toolbar buttons ---------------------------------
-   mousedown.preventDefault() keeps focus in the textarea so the
-   selection survives the click, then click applies the mark. */
 $$('[data-format]').forEach(btn => {
   btn.addEventListener('mousedown', (e) => e.preventDefault());
   btn.addEventListener('click', (e) => {
@@ -3410,7 +3579,7 @@ fileInput.addEventListener('change', importFile);
 bgFileInput.addEventListener('change', uploadBgImage);
 
 /* ============================================================
-   30. Changelog
+   31. Changelog
    ============================================================ */
 function maybeShowChangelog() {
   try {
@@ -3427,7 +3596,7 @@ document.getElementById('changelogClose').addEventListener('click', () => {
 });
 
 /* ============================================================
-   31. Boot
+   32. Boot
    ============================================================ */
 function init() {
   buildOptionLists();
@@ -3436,16 +3605,16 @@ function init() {
 
   const saved = localStorage.getItem(STORAGE.doc);
   if (saved !== null) {
-    editor.value = saved;
+    editor.textContent = saved;
     history = [saved];
     historyIndex = 0;
   }
 
+  renderHighlight();
   updateHistoryButtons();
   updateStatusBar();
   updateFormatButtons();
   updateVimStatus();
-  updateHighlightLayer();
   renderLineNumbers();
   markDirty(false);
 
