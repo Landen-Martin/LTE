@@ -1,1716 +1,3458 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Landen's Text Editor</title>
-  <!-- PDF.js for text extraction -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <!-- jsPDF for text-based PDF export -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <style>
-    /* --------------------------------------------------
-       1. Custom Properties / Variables
-    -------------------------------------------------- */
-    :root {
-      --bg-primary: #f8f9fa;
-      --bg-surface: #ffffff;
-      --bg-subbar: #f1f3f4;
-      --border-color: #e0e0e0;
-      --text-color: #333333;
-      --text-muted: #666666;
-      --hover-bg: #eaeaea;
-      --active-bg: #dedede;
-      --modal-overlay: rgba(0, 0, 0, 0.4);
-      --accent-color: #007bff;
-      --accent-hover: #0056b3;
-      --btn-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-      --btn-hover-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-      --bg-image: none;
-      --bg-blur: 0px;
-      --bg-overlay-opacity: 0;
-    }
-
-    body.dark-theme {
-      --bg-primary: #1e1e1e;
-      --bg-surface: #252526;
-      --bg-subbar: #2d2d2d;
-      --border-color: #3e3e42;
-      --text-color: #d4d4d4;
-      --text-muted: #999999;
-      --hover-bg: #37373d;
-      --active-bg: #45454c;
-      --modal-overlay: rgba(0, 0, 0, 0.7);
-      --btn-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-      --btn-hover-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-    }
-
-    /* --------------------------------------------------
-       2. Global Resets & Base Layout
-    -------------------------------------------------- */
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body, html {
-      height: 100%;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      background: var(--bg-primary);
-      color: var(--text-color);
-      transition: background-color 0.2s, color 0.2s;
-    }
-
-    /* --------------------------------------------------
-       3. Toolbars & Navigation
-    -------------------------------------------------- */
-    .top-bar {
-      height: 38px;
-      background: var(--bg-surface);
-      border-bottom: 1px solid var(--border-color);
-      display: flex;
-      align-items: center;
-      padding: 0 10px;
-      gap: 4px;
-      user-select: none;
-      z-index: 10;
-    }
-
-    .sub-bar {
-      height: 42px;
-      background: var(--bg-subbar);
-      border-bottom: 1px solid var(--border-color);
-      display: flex;
-      align-items: center;
-      padding: 0 10px;
-      gap: 6px;
-      user-select: none;
-      overflow-x: auto;
-      z-index: 9;
-    }
-
-    .toolbar-divider {
-      width: 1px;
-      height: 20px;
-      background-color: var(--border-color);
-      margin: 0 4px;
-      flex-shrink: 0;
-    }
-
-    /* Dropdowns */
-    .dropdown {
-      position: relative;
-      display: inline-block;
-    }
-
-    .dropdown-btn {
-      background: transparent;
-      border: 1px solid transparent;
-      padding: 5px 10px;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      border-radius: 6px;
-      color: var(--text-color);
-      transition: all 0.15s ease;
-    }
-
-    .dropdown-btn:hover {
-      background-color: var(--hover-bg);
-      border-color: var(--border-color);
-    }
-
-    .dropdown-content {
-      display: none;
-      position: absolute;
-      top: 100%;
-      left: 0;
-      background-color: var(--bg-surface);
-      min-width: 230px;
-      box-shadow: 0px 4px 16px rgba(0, 0, 0, 0.15);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      z-index: 100;
-      padding: 4px 0;
-      animation: fadeIn 0.12s ease-out;
-    }
-
-    .dropdown:hover .dropdown-content {
-      display: block;
-    }
-
-    .dropdown-content button {
-      width: 100%;
-      text-align: left;
-      padding: 8px 14px;
-      background: none;
-      border: none;
-      font-size: 13px;
-      cursor: pointer;
-      color: var(--text-color);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      transition: background-color 0.15s;
-    }
-
-    .dropdown-content button:hover {
-      background-color: var(--hover-bg);
-    }
-
-    .dropdown-content svg {
-      width: 16px;
-      height: 16px;
-      flex-shrink: 0;
-      stroke: var(--text-color);
-    }
-
-    .shortcut-hint {
-      margin-left: auto;
-      opacity: 0.5;
-      font-size: 11px;
-    }
-
-    .dropdown-divider {
-      height: 1px;
-      background-color: var(--border-color);
-      margin: 4px 0;
-    }
-
-    /* Buttons */
-    .tool-btn {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-color);
-      width: 32px;
-      height: 32px;
-      cursor: pointer;
-      border-radius: 6px;
-      color: var(--text-color);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow: var(--btn-shadow);
-      flex-shrink: 0;
-    }
-
-    .tool-btn svg {
-      width: 16px;
-      height: 16px;
-      stroke: var(--text-color);
-      transition: stroke 0.15s ease;
-    }
-
-    .tool-btn:hover:not(:disabled) {
-      background-color: var(--hover-bg);
-      border-color: var(--text-muted);
-      box-shadow: var(--btn-hover-shadow);
-      transform: translateY(-1px);
-    }
-
-    .tool-btn:active:not(:disabled) {
-      background-color: var(--active-bg);
-      transform: translateY(0);
-      box-shadow: none;
-    }
-
-    .tool-btn:disabled {
-      opacity: 0.35;
-      cursor: not-allowed;
-      box-shadow: none;
-    }
-
-    .btn-primary {
-      background: var(--accent-color);
-      color: #ffffff;
-      border: none;
-      padding: 8px 18px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-      transition: all 0.15s ease;
-      box-shadow: var(--btn-shadow);
-    }
-
-    .btn-primary:hover {
-      filter: brightness(0.9);
-      box-shadow: var(--btn-hover-shadow);
-      transform: translateY(-1px);
-    }
-
-    .btn-primary:active {
-      transform: translateY(0);
-    }
-
-    .btn-secondary {
-      background: var(--bg-surface);
-      color: var(--text-color);
-      border: 1px solid var(--border-color);
-      padding: 8px 18px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-      transition: all 0.15s ease;
-      box-shadow: var(--btn-shadow);
-    }
-
-    .btn-secondary:hover {
-      background-color: var(--hover-bg);
-      transform: translateY(-1px);
-    }
-
-    .btn-danger {
-      background: #dc3545;
-      color: #ffffff;
-      border: none;
-      padding: 5px 10px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 12px;
-      transition: all 0.15s ease;
-    }
-
-    .btn-danger:hover {
-      background: #bd2130;
-    }
-
-    /* --------------------------------------------------
-       4. Text Editor Area & Background Layers
-    -------------------------------------------------- */
-    .editor-container {
-      flex: 1;
-      position: relative;
-      overflow: hidden;
-      background: var(--bg-primary);
-    }
-
-    .bg-image-layer {
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background-image: var(--bg-image);
-      background-size: cover;
-      background-position: center;
-      filter: blur(var(--bg-blur));
-      transform: scale(1.03);
-      z-index: 1;
-      pointer-events: none;
-    }
-
-    .bg-overlay-layer {
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background-color: var(--bg-primary);
-      opacity: var(--bg-overlay-opacity);
-      z-index: 2;
-      pointer-events: none;
-    }
-
-    textarea {
-      position: relative;
-      z-index: 3;
-      width: 100%;
-      height: 100%;
-      padding: 20px;
-      font-size: 16px;
-      font-family: "Consolas", "Courier New", monospace;
-      background: transparent;
-      color: var(--text-color);
-      border: none;
-      outline: none;
-      resize: none;
-      line-height: 1.5;
-      white-space: pre-wrap;
-    }
-
-    #fileInput, #bgFileInput {
-      display: none;
-    }
-
-    /* --------------------------------------------------
-       5. Form Elements
-    -------------------------------------------------- */
-    select, input[type="text"] {
-      appearance: none;
-      -webkit-appearance: none;
-      background-color: var(--bg-surface);
-      color: var(--text-color);
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      padding: 6px 10px;
-      font-size: 13px;
-      font-family: inherit;
-      outline: none;
-      transition: all 0.15s ease;
-    }
-
-    select {
-      padding-right: 28px;
-      cursor: pointer;
-      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="%23888888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>');
-      background-repeat: no-repeat;
-      background-position: right 8px center;
-      box-shadow: var(--btn-shadow);
-      flex-shrink: 0;
-    }
-
-    select:hover, select:focus, input[type="text"]:focus {
-      border-color: var(--accent-color);
-    }
-
-    select option {
-      background-color: var(--bg-surface);
-      color: var(--text-color);
-    }
-
-    /* Toggle Switch */
-    .switch {
-      position: relative;
-      display: inline-block;
-      width: 42px;
-      height: 24px;
-    }
-
-    .switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
-    .slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #ccc;
-      transition: .2s;
-      border-radius: 24px;
-    }
-
-    .slider:before {
-      position: absolute;
-      content: "";
-      height: 18px;
-      width: 18px;
-      left: 3px;
-      bottom: 3px;
-      background-color: white;
-      transition: .2s;
-      border-radius: 50%;
-    }
-
-    input:checked + .slider {
-      background-color: var(--accent-color);
-    }
-
-    input:checked + .slider:before {
-      transform: translateX(18px);
-    }
-
-    /* --------------------------------------------------
-       6. Modals & Settings
-    -------------------------------------------------- */
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: var(--modal-overlay);
-      z-index: 200;
-      justify-content: center;
-      align-items: center;
-      backdrop-filter: blur(3px);
-    }
-
-    .modal-box {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-color);
-      color: var(--text-color);
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
-      width: 420px;
-      max-width: 90vw;
-    }
-
-    .modal-box h3 {
-      margin-bottom: 14px;
-      font-size: 17px;
-      font-weight: 600;
-    }
-
-    .field-group {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-
-    .field-row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .modal-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      margin-top: 18px;
-    }
-
-    /* Extended Settings Modal */
-    .settings-modal-box {
-      width: 680px;
-      height: 520px;
-      display: flex;
-      flex-direction: column;
-      padding: 0;
-      overflow: hidden;
-    }
-
-    .settings-header {
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--border-color);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .settings-header h3 {
-      margin: 0;
-    }
-
-    .close-btn {
-      background: none;
-      border: none;
-      font-size: 20px;
-      cursor: pointer;
-      color: var(--text-muted);
-      border-radius: 4px;
-      width: 28px;
-      height: 28px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background-color 0.15s;
-    }
-
-    .close-btn:hover {
-      background-color: var(--hover-bg);
-      color: var(--text-color);
-    }
-
-    .settings-body {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-    }
-
-    .settings-sidebar {
-      width: 170px;
-      background: var(--bg-subbar);
-      border-right: 1px solid var(--border-color);
-      display: flex;
-      flex-direction: column;
-      padding: 8px;
-      gap: 2px;
-    }
-
-    .tab-btn {
-      background: none;
-      border: none;
-      text-align: left;
-      padding: 9px 12px;
-      font-size: 13px;
-      color: var(--text-color);
-      cursor: pointer;
-      border-radius: 6px;
-      transition: all 0.15s ease;
-    }
-
-    .tab-btn:hover {
-      background-color: var(--hover-bg);
-    }
-
-    .tab-btn.active {
-      background-color: var(--bg-surface);
-      color: var(--accent-color);
-      font-weight: 600;
-      box-shadow: var(--btn-shadow);
-    }
-
-    .settings-content {
-      flex: 1;
-      padding: 20px;
-      overflow-y: auto;
-    }
-
-    .settings-footer {
-      padding: 12px 20px;
-      border-top: 1px solid var(--border-color);
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      background: var(--bg-surface);
-    }
-
-    .tab-panel {
-      display: none;
-    }
-
-    .tab-panel.active {
-      display: block;
-    }
-
-    .section-title {
-      font-size: 14px;
-      font-weight: 600;
-      margin: 14px 0 8px 0;
-      padding-bottom: 4px;
-      border-bottom: 1px solid var(--border-color);
-      color: var(--accent-color);
-    }
-
-    .section-title:first-child {
-      margin-top: 0;
-    }
-
-    .setting-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-      padding: 2px 0;
-    }
-
-    .setting-item.nested {
-      padding-left: 16px;
-    }
-
-    .setting-item label {
-      font-size: 13px;
-      font-weight: 500;
-    }
-
-    /* Keybindings Table */
-    .keybindings-list {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
-
-    .keybindings-list th, .keybindings-list td {
-      padding: 8px;
-      text-align: left;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    .keybindings-list th {
-      font-weight: 600;
-      color: var(--text-muted);
-    }
-
-    .key-badge {
-      background: var(--bg-subbar);
-      border: 1px solid var(--border-color);
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-family: monospace;
-      font-size: 12px;
-    }
-
-    /* Template Management List */
-    .template-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 12px;
-      background: var(--bg-subbar);
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      margin-bottom: 8px;
-    }
-
-    /* Toast */
-    .toast {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      background: var(--bg-surface);
-      color: var(--text-color);
-      border: 1px solid var(--border-color);
-      padding: 10px 16px;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      font-size: 13px;
-      font-weight: 500;
-      opacity: 0;
-      transform: translateY(10px);
-      transition: all 0.2s ease;
-      pointer-events: none;
-      z-index: 300;
-    }
-
-    .toast.show {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-4px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Landen's Text Editor</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+/* ============================================================
+   1. Design tokens
+   ============================================================ */
+:root {
+  --bg-primary: #f8f9fa;
+  --bg-surface: #ffffff;
+  --bg-subbar: #f1f3f4;
+  --border-color: #e0e0e0;
+  --text-color: #333333;
+  --text-muted: #6b7280;
+  --hover-bg: #eaeaea;
+  --active-bg: #dedede;
+  --modal-overlay: rgba(0, 0, 0, 0.4);
+  --accent-color: #007bff;
+  --btn-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --btn-hover-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+
+  --bg-image: none;
+  --bg-blur: 0px;
+  --bg-overlay-opacity: 0;
+
+  --editor-font: 'Consolas', 'Courier New', monospace;
+  --editor-size: 16px;
+  --editor-leading: 1.5;
+  --editor-pad: 20px;
+  --editor-weight: 400;
+  --editor-style: normal;
+  --editor-decoration: none;
+
+  --rule-color: rgba(0, 0, 0, 0.10);
+  --rule-margin: rgba(220, 70, 70, 0.40);
+
+  --gutter-bg: #f1f3f4;
+  --danger: #dc3545;
+  --danger-hover: #bd2130;
+
+  --tok-keyword: #a626a4;
+  --tok-builtin: #4078f2;
+  --tok-string: #50a14f;
+  --tok-number: #986801;
+  --tok-comment: #a0a1a7;
+  --tok-function: #4078f2;
+  --tok-type: #c18401;
+  --tok-tag: #e45649;
+  --tok-attr: #986801;
+  --tok-preproc: #c18401;
+  --tok-property: #4078f2;
+  --tok-selector: #e45649;
+  --tok-heading: #a626a4;
+  --tok-code: #50a14f;
+  --tok-link: #4078f2;
+}
+
+body.dark-theme {
+  --bg-primary: #1e1e1e;
+  --bg-surface: #252526;
+  --bg-subbar: #2d2d2d;
+  --border-color: #3e3e42;
+  --text-color: #d4d4d4;
+  --text-muted: #8b8b8b;
+  --hover-bg: #37373d;
+  --active-bg: #45454c;
+  --modal-overlay: rgba(0, 0, 0, 0.7);
+  --btn-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --btn-hover-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  --gutter-bg: #2d2d2d;
+  --rule-margin: rgba(255, 120, 120, 0.40);
+
+  --tok-keyword: #c678dd;
+  --tok-builtin: #61afef;
+  --tok-string: #98c379;
+  --tok-number: #d19a66;
+  --tok-comment: #7f848e;
+  --tok-function: #61afef;
+  --tok-type: #e5c07b;
+  --tok-tag: #e06c75;
+  --tok-attr: #d19a66;
+  --tok-preproc: #e5c07b;
+  --tok-property: #61afef;
+  --tok-selector: #e06c75;
+  --tok-heading: #c678dd;
+  --tok-code: #98c379;
+  --tok-link: #61afef;
+}
+
+/* ============================================================
+   2. Base
+   ============================================================ */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+  color: var(--text-color);
+  transition: background-color .2s, color .2s;
+  overflow: hidden;
+}
+button { font-family: inherit; }
+input, select, textarea { font-family: inherit; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ============================================================
+   3. Bars
+   ============================================================ */
+.top-bar, .sub-bar, .status-bar { user-select: none; flex-shrink: 0; }
+
+.top-bar {
+  height: 38px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 4px;
+  z-index: 10;
+}
+
+.sub-bar {
+  height: 44px;
+  background: var(--bg-subbar);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  z-index: 9;
+}
+
+.status-bar {
+  height: 26px;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+  z-index: 10;
+}
+.status-bar .spacer { margin-left: auto; }
+.status-bar #statusVim {
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+  color: var(--accent-color);
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   4. Dropdown menus
+   ============================================================ */
+.dropdown { position: relative; }
+
+.dropdown-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 5px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 6px;
+  color: var(--text-color);
+  transition: background-color .15s, border-color .15s;
+}
+.dropdown-btn:hover { background: var(--hover-bg); border-color: var(--border-color); }
+.dropdown.open .dropdown-btn { background: var(--active-bg); border-color: var(--border-color); }
+
+.dropdown-content {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 250px;
+  max-height: 72vh;
+  overflow-y: auto;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .16);
+  padding: 5px 0;
+  z-index: 100;
+  animation: fadeIn .12s ease-out;
+}
+.dropdown.open .dropdown-content { display: block; }
+
+.dropdown-content button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: none;
+  border: none;
+  font-size: 13px;
+  color: var(--text-color);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color .12s;
+}
+.dropdown-content button:hover { background: var(--hover-bg); }
+.dropdown-content button svg {
+  width: 16px; height: 16px;
+  flex-shrink: 0;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.shortcut-hint {
+  margin-left: auto;
+  font-size: 11px;
+  opacity: .5;
+  font-family: ui-monospace, monospace;
+}
+.menu-check {
+  margin-left: auto;
+  opacity: 0;
+  font-size: 13px;
+  color: var(--accent-color);
+  font-weight: 700;
+}
+.dropdown-content button.checked .menu-check { opacity: 1; }
+.dropdown-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 5px 0;
+}
+
+/* ============================================================
+   5. Buttons & form controls
+   ============================================================ */
+.tool-btn {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-color);
+  cursor: pointer;
+  font-size: 14px;
+  box-shadow: var(--btn-shadow);
+  transition: background-color .15s, border-color .15s, transform .15s, box-shadow .15s, color .15s;
+}
+.tool-btn svg {
+  width: 16px; height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.tool-btn:hover:not(:disabled) {
+  background: var(--hover-bg);
+  border-color: var(--text-muted);
+  box-shadow: var(--btn-hover-shadow);
+  transform: translateY(-1px);
+}
+.tool-btn:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
+.tool-btn:disabled { opacity: .35; cursor: not-allowed; box-shadow: none; }
+.tool-btn.active {
+  background: color-mix(in srgb, var(--accent-color) 16%, var(--bg-surface));
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.btn-primary, .btn-secondary, .btn-danger {
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: filter .15s, background-color .15s, transform .15s, box-shadow .15s;
+}
+.btn-primary {
+  background: var(--accent-color);
+  color: #fff;
+  border: none;
+  padding: 8px 18px;
+  box-shadow: var(--btn-shadow);
+}
+.btn-primary:hover { filter: brightness(.9); transform: translateY(-1px); box-shadow: var(--btn-hover-shadow); }
+.btn-primary:active { transform: translateY(0); }
+.btn-secondary {
+  background: var(--bg-surface);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  padding: 8px 18px;
+  box-shadow: var(--btn-shadow);
+}
+.btn-secondary:hover { background: var(--hover-bg); transform: translateY(-1px); }
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+  border: none;
+  padding: 5px 12px;
+  font-size: 12px;
+}
+.btn-danger:hover { background: var(--danger-hover); }
+
+select, input[type="text"], input[type="number"] {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--bg-surface);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+select {
+  padding-right: 28px;
+  cursor: pointer;
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="%23888888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>');
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  box-shadow: var(--btn-shadow);
+  flex-shrink: 0;
+}
+select:hover, select:focus, input[type="text"]:focus, input[type="number"]:focus {
+  border-color: var(--accent-color);
+}
+select option { background: var(--bg-surface); color: var(--text-color); }
+
+.switch { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider {
+  position: absolute; inset: 0;
+  background: #bbb;
+  border-radius: 24px;
+  cursor: pointer;
+  transition: background-color .2s;
+}
+.slider::before {
+  content: "";
+  position: absolute;
+  height: 18px; width: 18px;
+  left: 3px; bottom: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform .2s;
+}
+input:checked + .slider { background: var(--accent-color); }
+input:checked + .slider::before { transform: translateX(18px); }
+
+/* ============================================================
+   6. Work area & editor
+   ============================================================ */
+.work-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.editor-container {
+  flex: 1 1 auto;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-primary);
+  min-height: 0;
+}
+
+.bg-image-layer, .bg-overlay-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.bg-image-layer {
+  z-index: 1;
+  background-image: var(--bg-image);
+  background-size: cover;
+  background-position: center;
+  filter: blur(var(--bg-blur));
+  transform: scale(1.03);
+}
+.bg-overlay-layer {
+  z-index: 2;
+  background: var(--bg-primary);
+  opacity: var(--bg-overlay-opacity);
+}
+
+.editor-inner {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+.gutter {
+  flex: 0 0 auto;
+  overflow: hidden;
+  background: var(--gutter-bg);
+  border-right: 1px solid var(--border-color);
+  user-select: none;
+}
+.line-numbers {
+  padding: var(--editor-pad) 12px;
+  font-family: var(--editor-font);
+  font-size: var(--editor-size);
+  font-weight: var(--editor-weight, 400);
+  font-style: var(--editor-style, normal);
+  line-height: var(--editor-leading);
+  color: var(--text-muted);
+  text-align: right;
+  white-space: pre;
+  will-change: transform;
+}
+.line-numbers .ln { display: block; }
+
+.text-column {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+.text-column::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; left: 0;
+  width: 1px;
+  background: var(--rule-margin);
+  opacity: 0;
+  z-index: 0;
+  pointer-events: none;
+  transition: opacity .2s;
+}
+.text-column.show-margin::after { opacity: 1; }
+
+#editor, .highlight-layer {
+  padding: var(--editor-pad);
+  font-family: var(--editor-font);
+  font-size: var(--editor-size);
+  font-weight: var(--editor-weight, 400);
+  font-style: var(--editor-style, normal);
+  text-decoration: var(--editor-decoration, none);
+  line-height: var(--editor-leading);
+  letter-spacing: normal;
+  tab-size: 4;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+  scrollbar-gutter: stable;
+}
+
+#editor {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  color: var(--text-color);
+  background-color: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  caret-color: var(--accent-color);
+}
+#editor::placeholder { color: var(--text-muted); opacity: .7; }
+#editor.wrap-off { white-space: pre; overflow-wrap: normal; }
+
+.highlight-layer {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--text-color);
+  z-index: 0;
+  display: none;
+  will-change: transform;
+}
+.highlight-layer code {
+  font: inherit;
+  color: inherit;
+  white-space: inherit;
+  overflow-wrap: inherit;
+  tab-size: inherit;
+}
+
+.editor-inner.hl-on .highlight-layer { display: block; }
+.editor-inner.hl-on #editor {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+.editor-inner.hl-on #editor::placeholder {
+  color: var(--text-muted);
+  -webkit-text-fill-color: var(--text-muted);
+}
+#editor::selection {
+  background: color-mix(in srgb, var(--accent-color) 35%, transparent);
+}
+
+/* Token colors */
+.tok-keyword  { color: var(--tok-keyword); font-weight: 600; }
+.tok-builtin  { color: var(--tok-builtin); }
+.tok-string   { color: var(--tok-string); }
+.tok-number   { color: var(--tok-number); }
+.tok-comment  { color: var(--tok-comment); font-style: italic; }
+.tok-function { color: var(--tok-function); }
+.tok-type     { color: var(--tok-type); }
+.tok-tag      { color: var(--tok-tag); }
+.tok-attr     { color: var(--tok-attr); }
+.tok-preproc  { color: var(--tok-preproc); }
+.tok-property { color: var(--tok-property); }
+.tok-selector { color: var(--tok-selector); font-weight: 600; }
+.tok-heading  { color: var(--tok-heading); font-weight: 700; }
+.tok-bold     { font-weight: 700; }
+.tok-italic   { font-style: italic; }
+.tok-code     { color: var(--tok-code); background: color-mix(in srgb, var(--text-color) 6%, transparent); border-radius: 3px; }
+.tok-link     { color: var(--tok-link); text-decoration: underline; }
+
+#editor, .line-numbers {
+  --rule-h: calc(var(--editor-size) * var(--editor-leading));
+  --rule-w: 4ch;
+}
+.paper-ruled #editor, .paper-ruled .line-numbers {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(var(--rule-h) - 1px),
+    var(--rule-color) calc(var(--rule-h) - 1px),
+    var(--rule-color) var(--rule-h)
+  );
+  background-position: 0 var(--editor-pad);
+  background-repeat: repeat;
+  background-attachment: local;
+}
+.paper-grid #editor, .paper-grid .line-numbers {
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(var(--rule-h) - 1px),
+      var(--rule-color) calc(var(--rule-h) - 1px),
+      var(--rule-color) var(--rule-h)
+    ),
+    repeating-linear-gradient(
+      to right,
+      transparent 0,
+      transparent calc(var(--rule-w) - 1px),
+      var(--rule-color) calc(var(--rule-w) - 1px),
+      var(--rule-color) var(--rule-w)
+    );
+  background-position: 0 var(--editor-pad), 0 0;
+  background-repeat: repeat, repeat;
+  background-attachment: local, local;
+}
+.paper-dotted #editor, .paper-dotted .line-numbers {
+  background-image: radial-gradient(circle at 0 0, var(--rule-color) 1.2px, transparent 1.6px);
+  background-size: var(--rule-w) var(--rule-h);
+  background-position: 0 calc(var(--editor-pad) + var(--rule-h));
+  background-repeat: repeat;
+  background-attachment: local;
+}
+
+.hidden-input { display: none; }
+
+/* ============================================================
+   7. Run panel
+   ============================================================ */
+.run-panel {
+  flex: 0 0 auto;
+  height: 0;
+  overflow: hidden;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  transition: height .2s ease;
+}
+.run-panel.open { height: 260px; }
+
+.run-header {
+  height: 34px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-subbar);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.run-header .spacer { margin-left: auto; }
+.run-header .run-status {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.run-header .btn-secondary { padding: 4px 12px; font-size: 12px; }
+
+.run-body {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+.run-body iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #fff;
+  display: none;
+}
+.run-body pre {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  font-family: ui-monospace, 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-color);
+  white-space: pre-wrap;
+  word-break: break-word;
+  display: none;
+}
+.run-body pre.show { display: block; }
+.run-body iframe.show { display: block; }
+
+/* ============================================================
+   8. Modals
+   ============================================================ */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--modal-overlay);
+  backdrop-filter: blur(3px);
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+}
+.modal-overlay.open { display: flex; }
+
+.modal-box {
+  background: var(--bg-surface);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, .28);
+  padding: 20px;
+  width: 440px;
+  max-width: 92vw;
+  max-height: 90vh;
+  overflow: auto;
+}
+.modal-box h3 { margin-bottom: 14px; font-size: 17px; font-weight: 600; }
+
+.field-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.field-row { display: flex; gap: 8px; align-items: center; }
+.field-label { font-size: 12px; color: var(--text-muted); }
+.field-help { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+.find-meta { font-size: 12px; color: var(--text-muted); min-height: 16px; }
+
+.changelog-box { width: 540px; }
+.changelog-list {
+  margin: 0 0 14px;
+  padding-left: 0;
+  list-style: none;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--text-color);
+}
+.changelog-list li {
+  padding: 5px 0 5px 22px;
+  position: relative;
+}
+.changelog-list li::before {
+  content: '✦';
+  position: absolute;
+  left: 0;
+  color: var(--accent-color);
+  font-size: 12px;
+  top: 6px;
+}
+.changelog-list b { font-weight: 600; }
+.changelog-list em { color: var(--text-muted); font-style: normal; }
+.changelog-remember {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+.changelog-remember input { width: 15px; height: 15px; accent-color: var(--accent-color); }
+
+.settings-modal-box {
+  width: 760px;
+  height: 580px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+.settings-header h3 { margin: 0; }
+.close-btn {
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; border-radius: 4px;
+  font-size: 20px; line-height: 1;
+  color: var(--text-muted); cursor: pointer;
+  transition: background-color .15s, color .15s;
+}
+.close-btn:hover { background: var(--hover-bg); color: var(--text-color); }
+
+.settings-body { display: flex; flex: 1; overflow: hidden; }
+.settings-sidebar {
+  width: 180px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  background: var(--bg-subbar);
+  border-right: 1px solid var(--border-color);
+  overflow-y: auto;
+}
+.tab-btn {
+  text-align: left;
+  padding: 9px 12px;
+  font-size: 13px;
+  color: var(--text-color);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color .15s;
+}
+.tab-btn:hover { background: var(--hover-bg); }
+.tab-btn.active {
+  background: var(--bg-surface);
+  color: var(--accent-color);
+  font-weight: 600;
+  box-shadow: var(--btn-shadow);
+}
+.settings-content { flex: 1; padding: 20px; overflow-y: auto; }
+.settings-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-surface);
+}
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+.section-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--accent-color);
+  margin: 18px 0 8px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--border-color);
+}
+.section-title:first-child { margin-top: 0; }
+
+.setting-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.setting-item label { font-size: 13px; font-weight: 500; }
+
+.keybindings-list { width: 100%; border-collapse: collapse; font-size: 13px; }
+.keybindings-list th, .keybindings-list td { padding: 8px; text-align: left; border-bottom: 1px solid var(--border-color); }
+.keybindings-list th { font-weight: 600; color: var(--text-muted); }
+.key-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  background: var(--bg-subbar);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
+
+.template-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background: var(--bg-subbar);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 13px;
+}
+.template-textarea {
+  height: 84px;
+  padding: 8px;
+  font-size: 12px;
+  font-family: ui-monospace, monospace;
+  color: var(--text-color);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  resize: vertical;
+  outline: none;
+}
+
+/* ============================================================
+   9. Toast
+   ============================================================ */
+.toast {
+  position: fixed;
+  right: 20px;
+  bottom: 44px;
+  z-index: 300;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-color);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .18);
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+  transition: opacity .2s, transform .2s;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================================
+   10. Print
+   ============================================================ */
+@media print {
+  .top-bar, .sub-bar, .status-bar, .gutter, .toast, .modal-overlay, .run-panel { display: none !important; }
+  html, body { height: auto; overflow: visible; background: #fff; }
+  .editor-container, .work-area { overflow: visible; }
+  #editor {
+    position: static;
+    height: auto;
+    color: #000 !important;
+    -webkit-text-fill-color: #000 !important;
+    padding: 0;
+    background-image: none !important;
+  }
+  .bg-image-layer, .bg-overlay-layer, .text-column::after, .highlight-layer { display: none !important; }
+}
+
+@media (max-width: 640px) {
+  .settings-modal-box { width: 100%; height: 100%; border-radius: 0; }
+  .settings-sidebar { width: 130px; }
+}
+</style>
 </head>
+
 <body>
 
-  <!-- Top Bar with File & Edit Dropdowns -->
-  <div class="top-bar">
-    <!-- File Dropdown -->
-    <div class="dropdown">
-      <button class="dropdown-btn">File ▾</button>
-      <div class="dropdown-content">
-        <button onclick="newFile()">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-          New
-        </button>
-        <button onclick="saveLocally()">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-          Save
-        </button>
-        <div class="dropdown-divider"></div>
-        <button onclick="openExportModal()">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Download
-        </button>
-        <button onclick="triggerUpload()">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          Import
-        </button>
-        <button onclick="openTemplateModal()">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-          Templates
-        </button>
-        <div class="dropdown-divider"></div>
-        <button onclick="printFile()">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-          Print
-        </button>
-      </div>
-    </div>
+<!-- ============================================================
+     TOP MENU BAR
+     ============================================================ -->
+<div class="top-bar">
 
-    <!-- Edit Dropdown -->
-    <div class="dropdown">
-      <button class="dropdown-btn">Edit ▾</button>
-      <div class="dropdown-content">
-        <button onclick="selectAllText()">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 12l2 2 4-4"/></svg>
-          Select all
-          <span class="shortcut-hint">Ctrl+A</span>
-        </button>
-        <div class="dropdown-divider"></div>
-        <button onclick="cutText()">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.47" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
-          Cut
-          <span class="shortcut-hint">Ctrl+X</span>
-        </button>
-        <button onclick="copyText()">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          Copy
-          <span class="shortcut-hint">Ctrl+C</span>
-        </button>
-        <button onclick="pasteText()">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
-          Paste
-          <span class="shortcut-hint">Ctrl+V</span>
-        </button>
-        <div class="dropdown-divider"></div>
-        <button onclick="openFindModal()">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          Find
-          <span class="shortcut-hint">Ctrl+F</span>
-        </button>
-        <button onclick="openReplaceModal()">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-          Find and replace all
-          <span class="shortcut-hint">Ctrl+Shift+F</span>
-        </button>
-      </div>
+  <!-- File -->
+  <div class="dropdown">
+    <button class="dropdown-btn" type="button">File ▾</button>
+    <div class="dropdown-content">
+      <button data-action="new">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+        New <span class="shortcut-hint">Ctrl+N</span>
+      </button>
+      <button data-action="save">
+        <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Save <span class="shortcut-hint">Ctrl+S</span>
+      </button>
+      <div class="dropdown-divider"></div>
+      <button data-action="download">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download as…
+      </button>
+      <button data-action="import">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Import file…
+      </button>
+      <button data-action="templates">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+        Templates…
+      </button>
+      <div class="dropdown-divider"></div>
+      <button data-action="print">
+        <svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Print <span class="shortcut-hint">Ctrl+P</span>
+      </button>
     </div>
   </div>
 
-  <!-- Sub Toolbar (⚙ ↰ ↱ | Font type | Text size) -->
-  <div class="sub-bar">
-    <!-- 1. Settings Button (⚙ Gear SVG) -->
-    <button class="tool-btn" onclick="openSettingsModal()" aria-label="Settings" title="Settings">
-      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-    </button>
-
-    <!-- 2. Undo Button (↰ SVG) -->
-    <button class="tool-btn" id="undoBtn" onclick="undo()" disabled aria-label="Undo" title="Undo (ctrl + ←)">
-      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
-    </button>
-
-    <!-- 3. Redo Button (↱ SVG) -->
-    <button class="tool-btn" id="redoBtn" onclick="redo()" disabled aria-label="Redo" title="Redo (ctrl + →)">
-      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>
-    </button>
-
-    <!-- Divider | -->
-    <div class="toolbar-divider"></div>
-
-    <!-- 4. Font Type Dropdown -->
-    <select id="toolbarFontFamily" onchange="updateFontFamilyFromToolbar(this.value)" title="Font Family">
-      <option value="'Consolas', 'Courier New', monospace">Consolas / Monospace</option>
-      <option value="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">Sans-Serif</option>
-      <option value="Georgia, serif">Serif</option>
-      <option value="'Comic Sans MS', cursive, sans-serif">Comic Sans</option>
-    </select>
-
-    <!-- 5. Text Size Dropdown -->
-    <select id="toolbarFontSize" onchange="updateFontSizeFromToolbar(this.value)" title="Font Size">
-      <option value="12px">12px</option>
-      <option value="14px">14px</option>
-      <option value="16px">16px</option>
-      <option value="18px">18px</option>
-      <option value="20px">20px</option>
-      <option value="24px">24px</option>
-    </select>
+  <!-- Edit -->
+  <div class="dropdown">
+    <button class="dropdown-btn" type="button">Edit ▾</button>
+    <div class="dropdown-content">
+      <button data-action="undo">
+        <svg viewBox="0 0 24 24"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+        Undo <span class="shortcut-hint">Ctrl+Z</span>
+      </button>
+      <button data-action="redo">
+        <svg viewBox="0 0 24 24"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>
+        Redo <span class="shortcut-hint">Ctrl+Y</span>
+      </button>
+      <div class="dropdown-divider"></div>
+      <button data-action="bold">
+        <svg viewBox="0 0 24 24"><path d="M6 4h8a4 4 0 0 1 0 8H6z"/><path d="M6 12h9a4 4 0 0 1 0 8H6z"/></svg>
+        Bold <span class="shortcut-hint">Ctrl+B</span>
+      </button>
+      <button data-action="italic">
+        <svg viewBox="0 0 24 24"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg>
+        Italic <span class="shortcut-hint">Ctrl+I</span>
+      </button>
+      <button data-action="underline">
+        <svg viewBox="0 0 24 24"><path d="M6 3v7a6 6 0 0 0 12 0V3"/><line x1="4" y1="21" x2="20" y2="21"/></svg>
+        Underline <span class="shortcut-hint">Ctrl+U</span>
+      </button>
+      <div class="dropdown-divider"></div>
+      <button data-action="selectAll">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 12l2 2 4-4"/></svg>
+        Select all <span class="shortcut-hint">Ctrl+A</span>
+      </button>
+      <button data-action="cut">
+        <svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.47" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
+        Cut <span class="shortcut-hint">Ctrl+X</span>
+      </button>
+      <button data-action="copy">
+        <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        Copy <span class="shortcut-hint">Ctrl+C</span>
+      </button>
+      <button data-action="paste">
+        <svg viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
+        Paste <span class="shortcut-hint">Ctrl+V</span>
+      </button>
+      <div class="dropdown-divider"></div>
+      <button data-action="find">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Find… <span class="shortcut-hint">Ctrl+F</span>
+      </button>
+      <button data-action="replace">
+        <svg viewBox="0 0 24 24"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+        Find &amp; replace all… <span class="shortcut-hint">Ctrl+Shift+F</span>
+      </button>
+      <button data-action="goto">
+        <svg viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+        Go to line… <span class="shortcut-hint">Ctrl+G</span>
+      </button>
+      <div class="dropdown-divider"></div>
+      <button data-action="duplicateLine">
+        <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        Duplicate line <span class="shortcut-hint">Ctrl+D</span>
+      </button>
+      <button data-action="deleteLine">
+        <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+        Delete line <span class="shortcut-hint">Ctrl+Shift+K</span>
+      </button>
+      <div class="dropdown-divider"></div>
+      <button data-action="upper">UPPERCASE</button>
+      <button data-action="lower">lowercase</button>
+      <button data-action="title">Title Case</button>
+      <div class="dropdown-divider"></div>
+      <button data-action="insertDate">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Insert date &amp; time
+      </button>
+    </div>
   </div>
 
-  <!-- Hidden File Inputs -->
-  <input type="file" id="fileInput" onchange="uploadFile(event)">
-  <input type="file" id="bgFileInput" accept="image/*" onchange="uploadBgImage(event)">
+  <!-- View -->
+  <div class="dropdown" id="viewDropdown">
+    <button class="dropdown-btn" type="button">View ▾</button>
+    <div class="dropdown-content">
+      <button data-action="toggleLineNumbers" data-toggle="showLineNumbers">
+        <svg viewBox="0 0 24 24"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><line x1="4" y1="6" x2="4.01" y2="6"/><line x1="4" y1="12" x2="4.01" y2="12"/><line x1="4" y1="18" x2="4.01" y2="18"/></svg>
+        Line numbers <span class="menu-check">✓</span>
+      </button>
+      <button data-action="toggleWordWrap" data-toggle="wordWrap">
+        <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><path d="M3 12h15a3 3 0 1 1 0 6h-4"/><polyline points="16 16 14 18 16 20"/><line x1="3" y1="18" x2="10" y2="18"/></svg>
+        Word wrap <span class="menu-check">✓</span>
+      </button>
+      <button data-action="toggleDarkTheme" data-toggle="darkTheme">
+        <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        Dark theme <span class="menu-check">✓</span>
+      </button>
+      <div class="dropdown-divider"></div>
+      <button data-action="cyclePaper">
+        <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        Cycle paper style
+      </button>
+      <button data-action="toggleMarginLine" data-toggle="marginLine">
+        <svg viewBox="0 0 24 24"><line x1="8" y1="3" x2="8" y2="21"/><line x1="12" y1="7" x2="20" y2="7"/><line x1="12" y1="12" x2="20" y2="12"/><line x1="12" y1="17" x2="20" y2="17"/></svg>
+        Margin line <span class="menu-check">✓</span>
+      </button>
+      <div class="dropdown-divider"></div>
+      <button data-action="toggleSyntaxHighlight" data-toggle="syntaxHighlight">
+        <svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        Syntax highlighting <span class="menu-check">✓</span>
+      </button>
+      <button data-action="toggleRunPanel">
+        <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Run code panel
+      </button>
+      <div class="dropdown-divider"></div>
+      <button data-action="zoomIn">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+        Zoom in <span class="shortcut-hint">Ctrl++</span>
+      </button>
+      <button data-action="zoomOut">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+        Zoom out <span class="shortcut-hint">Ctrl+-</span>
+      </button>
+      <button data-action="zoomReset">Reset zoom</button>
+      <div class="dropdown-divider"></div>
+      <button data-action="settings">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings… <span class="shortcut-hint">Ctrl+,</span>
+      </button>
+    </div>
+  </div>
+</div>
 
-  <!-- Editor Container -->
+<!-- ============================================================
+     SUB TOOLBAR
+     ============================================================ -->
+<div class="sub-bar">
+  <button class="tool-btn" data-action="settings" title="Settings" aria-label="Settings">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  </button>
+  <button class="tool-btn" id="undoBtn" data-action="undo" disabled title="Undo (Ctrl+Z)">
+    <svg viewBox="0 0 24 24"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+  </button>
+  <button class="tool-btn" id="redoBtn" data-action="redo" disabled title="Redo (Ctrl+Y)">
+    <svg viewBox="0 0 24 24"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>
+  </button>
+
+  <div class="toolbar-divider"></div>
+
+  <button class="tool-btn" data-format="bold" title="Bold (Ctrl+B)"><span style="font-weight:800">B</span></button>
+  <button class="tool-btn" data-format="italic" title="Italic (Ctrl+I)"><span style="font-family:Georgia,serif;font-style:italic;font-size:15px">I</span></button>
+  <button class="tool-btn" data-format="underline" title="Underline (Ctrl+U)"><span style="text-decoration:underline">U</span></button>
+
+  <div class="toolbar-divider"></div>
+
+  <button class="tool-btn" id="lineNumbersBtn" data-action="toggleLineNumbers" title="Toggle line numbers">
+    <svg viewBox="0 0 24 24"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><line x1="4" y1="6" x2="4.01" y2="6"/><line x1="4" y1="12" x2="4.01" y2="12"/><line x1="4" y1="18" x2="4.01" y2="18"/></svg>
+  </button>
+  <button class="tool-btn" id="wordWrapBtn" data-action="toggleWordWrap" title="Toggle word wrap">
+    <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><path d="M3 12h15a3 3 0 1 1 0 6h-4"/><polyline points="16 16 14 18 16 20"/><line x1="3" y1="18" x2="10" y2="18"/></svg>
+  </button>
+  <button class="tool-btn" id="paperBtn" data-action="cyclePaper" title="Cycle paper style">
+    <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
+
+  <div class="toolbar-divider"></div>
+
+  <select id="languageSelect" title="Language"></select>
+  <button class="tool-btn" id="runBtn" data-action="toggleRunPanel" title="Run code">
+    <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+  </button>
+
+  <div class="toolbar-divider"></div>
+
+  <select id="toolbarFontFamily" title="Font family"></select>
+  <select id="toolbarFontSize" title="Font size"></select>
+
+  <button class="tool-btn" data-action="zoomOut" title="Zoom out">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+  </button>
+  <button class="tool-btn" data-action="zoomIn" title="Zoom in">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+  </button>
+</div>
+
+<!-- Hidden inputs -->
+<input type="file" id="fileInput" class="hidden-input">
+<input type="file" id="bgFileInput" class="hidden-input" accept="image/*">
+
+<!-- ============================================================
+     WORK AREA
+     ============================================================ -->
+<div class="work-area">
   <div class="editor-container">
     <div class="bg-image-layer" id="bgImageLayer"></div>
     <div class="bg-overlay-layer" id="bgOverlayLayer"></div>
-    <textarea id="editor" placeholder="Start typing..."></textarea>
-  </div>
 
-  <!-- Toast Notification -->
-  <div class="toast" id="toast">Document saved!</div>
-
-  <!-- Find Modal -->
-  <div class="modal-overlay" id="findModal">
-    <div class="modal-box">
-      <h3>Find Text</h3>
-      <div class="field-group">
-        <input type="text" id="findInput" placeholder="Enter text to find...">
+    <div class="editor-inner" id="editorInner">
+      <div class="gutter" id="gutter">
+        <div class="line-numbers" id="lineNumbers"></div>
       </div>
-      <div class="modal-actions">
-        <button class="btn-secondary" onclick="closeFindModal()">Cancel</button>
-        <button class="btn-primary" onclick="executeFind()">Find Next</button>
+      <div class="text-column" id="textColumn">
+        <pre class="highlight-layer" id="highlightLayer" aria-hidden="true"><code id="highlightCode"></code></pre>
+        <textarea id="editor" placeholder="Start typing…" spellcheck="false"></textarea>
       </div>
     </div>
   </div>
 
-  <!-- Find and Replace Modal -->
-  <div class="modal-overlay" id="replaceModal">
-    <div class="modal-box">
-      <h3>Find & Replace All</h3>
-      <div class="field-group">
-        <label style="font-size: 12px;">Find:</label>
-        <input type="text" id="replaceFindInput" placeholder="Text to search...">
-      </div>
-      <div class="field-group">
-        <label style="font-size: 12px;">Replace with:</label>
-        <input type="text" id="replaceWithInput" placeholder="Replacement text...">
-      </div>
-      <div class="modal-actions">
-        <button class="btn-secondary" onclick="closeReplaceModal()">Cancel</button>
-        <button class="btn-primary" onclick="executeReplaceAll()">Replace All</button>
-      </div>
+  <!-- Run panel -->
+  <div class="run-panel" id="runPanel">
+    <div class="run-header">
+      <span id="runLangLabel">Output</span>
+      <span class="run-status" id="runStatus"></span>
+      <span class="spacer"></span>
+      <button class="btn-secondary" data-action="runCode">Run ▸</button>
+      <button class="close-btn" data-action="closeRunPanel" title="Close">&times;</button>
+    </div>
+    <div class="run-body">
+      <iframe id="runFrame" sandbox="allow-scripts allow-modals allow-popups allow-forms"></iframe>
+      <pre id="runOutput"></pre>
     </div>
   </div>
+</div>
 
-  <!-- Export / Download Modal -->
-  <div class="modal-overlay" id="exportModal">
-    <div class="modal-box">
-      <h3>Download File</h3>
-      <div class="field-group">
-        <label style="font-size: 13px;">File Name & Extension</label>
-        <div class="field-row">
-          <input type="text" id="fileNameInput" value="document" placeholder="File name" style="flex:1;">
-          <select id="fileExtSelect" onchange="handleExtChange()">
-            <option value=".txt">.txt</option>
-            <option value=".pdf">.pdf</option>
-            <option value=".html">.html</option>
-            <option value=".md">.md</option>
-            <option value=".json">.json</option>
-            <option value="other">Other...</option>
-          </select>
+<!-- ============================================================
+     STATUS BAR
+     ============================================================ -->
+<div class="status-bar">
+  <span id="statusVim" style="display:none">-- NORMAL --</span>
+  <span id="statusPos">Ln 1, Col 1</span>
+  <span id="statusSel" style="display:none">Sel 0</span>
+  <span id="statusLines">1 line</span>
+  <span id="statusWords">0 words</span>
+  <span id="statusChars">0 chars</span>
+  <span class="spacer"></span>
+  <span id="statusPaper"></span>
+  <span id="statusLang"></span>
+  <span id="statusSave">Saved</span>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ============================================================
+     MODALS
+     ============================================================ -->
+
+<!-- Changelog -->
+<div class="modal-overlay" id="changelogModal">
+  <div class="modal-box changelog-box">
+    <h3>What's new in v1.1</h3>
+    <ul class="changelog-list">
+      <li><b>Dev mode.</b> A new settings tab with <b>Vim keybindings</b>, language selection, and an in-editor code runner.</li>
+      <li><b>Run code.</b> Execute <b>Python</b> (via Pyodide), <b>JavaScript</b>, and <b>HTML</b> directly in a split output panel below the editor.</li>
+      <li><b>Syntax highlighting.</b> Colour-coded keywords, strings, numbers, comments, and functions for Python, JavaScript, HTML, CSS, C, JSON, and Markdown.</li>
+      <li><b>Vim mode.</b> Normal-mode navigation with <em>h j k l</em>, <em>w / b</em>, <em>0 / $</em>, <em>gg / G</em>, plus <em>i a o O I A</em>, <em>x</em>, <em>dd</em>, <em>yy</em>, <em>p</em>, <em>u</em>, and <em>:w</em> / <em>:wq</em>.</li>
+      <li><b>Lined paper.</b> Ruled, grid, and dotted page styles with adjustable line colour and a margin rule.</li>
+      <li><b>Bold, italic, underline.</b> Toolbar buttons and Ctrl+B / I / U shortcuts for the current selection.</li>
+    </ul>
+    <label class="changelog-remember">
+      <input type="checkbox" id="changelogDontShow">
+      Don't show this again
+    </label>
+    <div class="modal-actions">
+      <button class="btn-primary" id="changelogClose">Got it</button>
+    </div>
+  </div>
+</div>
+
+<!-- Find -->
+<div class="modal-overlay" id="findModal">
+  <div class="modal-box">
+    <h3>Find Text</h3>
+    <div class="field-group">
+      <input type="text" id="findInput" placeholder="Enter text to find…">
+      <div class="find-meta" id="findMeta"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" data-close>Close</button>
+      <button class="btn-secondary" data-action="findPrev">Previous</button>
+      <button class="btn-primary" data-action="findNext">Next</button>
+    </div>
+  </div>
+</div>
+
+<!-- Replace -->
+<div class="modal-overlay" id="replaceModal">
+  <div class="modal-box">
+    <h3>Find &amp; Replace All</h3>
+    <div class="field-group">
+      <label class="field-label" for="replaceFindInput">Find</label>
+      <input type="text" id="replaceFindInput" placeholder="Text to search…">
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="replaceWithInput">Replace with</label>
+      <input type="text" id="replaceWithInput" placeholder="Replacement text…">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" data-close>Cancel</button>
+      <button class="btn-primary" data-action="replaceAll">Replace All</button>
+    </div>
+  </div>
+</div>
+
+<!-- Go to line -->
+<div class="modal-overlay" id="gotoModal">
+  <div class="modal-box">
+    <h3>Go to Line</h3>
+    <div class="field-group">
+      <label class="field-label" for="gotoInput">Line number</label>
+      <input type="number" id="gotoInput" min="1" value="1">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" data-close>Cancel</button>
+      <button class="btn-primary" data-action="gotoConfirm">Go</button>
+    </div>
+  </div>
+</div>
+
+<!-- Export -->
+<div class="modal-overlay" id="exportModal">
+  <div class="modal-box">
+    <h3>Download File</h3>
+    <div class="field-group">
+      <label class="field-label">File name &amp; extension</label>
+      <div class="field-row">
+        <input type="text" id="fileNameInput" value="document" placeholder="File name" style="flex:1">
+        <select id="fileExtSelect">
+          <option value=".txt">.txt</option>
+          <option value=".pdf">.pdf</option>
+          <option value=".html">.html</option>
+          <option value=".md">.md</option>
+          <option value=".json">.json</option>
+          <option value=".py">.py</option>
+          <option value=".js">.js</option>
+          <option value=".c">.c</option>
+          <option value="other">Other…</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-group" id="customExtContainer" style="display:none">
+      <input type="text" id="customExtInput" placeholder="Custom extension (e.g. .log)">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" data-close>Cancel</button>
+      <button class="btn-primary" data-action="exportConfirm">Download</button>
+    </div>
+  </div>
+</div>
+
+<!-- Templates -->
+<div class="modal-overlay" id="templateModal">
+  <div class="modal-box">
+    <h3>Load Template</h3>
+    <div class="field-group">
+      <select id="templateSelect"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" data-close>Cancel</button>
+      <button class="btn-primary" data-action="templateLoad">Load</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal-box">
+    <h3 id="confirmTitle">Are you sure?</h3>
+    <p id="confirmMessage" style="font-size:14px;color:var(--text-muted)">This action cannot be undone.</p>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="confirmCancelBtn">Cancel</button>
+      <button class="btn-primary" id="confirmOkBtn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal-box settings-modal-box">
+    <div class="settings-header">
+      <h3>Settings</h3>
+      <button class="close-btn" data-close>&times;</button>
+    </div>
+
+    <div class="settings-body">
+      <div class="settings-sidebar">
+        <button class="tab-btn active" data-tab="appearance">Appearance</button>
+        <button class="tab-btn" data-tab="editor">Editor</button>
+        <button class="tab-btn" data-tab="dev">Dev mode</button>
+        <button class="tab-btn" data-tab="keybindings">Key bindings</button>
+        <button class="tab-btn" data-tab="templates">Templates</button>
+      </div>
+
+      <div class="settings-content">
+
+        <!-- Appearance -->
+        <div class="tab-panel active" id="tab-appearance">
+          <div class="section-title">Theme</div>
+          <div class="setting-item">
+            <label for="darkThemeToggle">Dark theme</label>
+            <label class="switch"><input type="checkbox" id="darkThemeToggle"><span class="slider"></span></label>
+          </div>
+          <div class="setting-item">
+            <label for="themeColorSelect">Accent color</label>
+            <select id="themeColorSelect">
+              <option value="#007bff">Blue (default)</option>
+              <option value="#28a745">Green</option>
+              <option value="#6f42c1">Purple</option>
+              <option value="#dc3545">Red</option>
+              <option value="#fd7e14">Orange</option>
+              <option value="#20c997">Teal</option>
+            </select>
+          </div>
+
+          <div class="section-title">Paper lines</div>
+          <div class="setting-item">
+            <label for="paperStyleSelect">Line style</label>
+            <select id="paperStyleSelect">
+              <option value="none">None</option>
+              <option value="ruled">Ruled lines</option>
+              <option value="grid">Grid</option>
+              <option value="dotted">Dotted</option>
+            </select>
+          </div>
+          <div class="setting-item">
+            <label for="ruleColorSelect">Line color</label>
+            <select id="ruleColorSelect">
+              <option value="subtle">Subtle</option>
+              <option value="gray">Gray</option>
+              <option value="blue">Blue</option>
+              <option value="green">Green</option>
+              <option value="red">Red</option>
+            </select>
+          </div>
+          <div class="setting-item">
+            <label for="marginLineToggle">Margin line</label>
+            <label class="switch"><input type="checkbox" id="marginLineToggle"><span class="slider"></span></label>
+          </div>
+
+          <div class="section-title">Text style</div>
+          <div class="setting-item">
+            <label for="textBoldToggle">Bold</label>
+            <label class="switch"><input type="checkbox" id="textBoldToggle"><span class="slider"></span></label>
+          </div>
+          <div class="setting-item">
+            <label for="textItalicToggle">Italic</label>
+            <label class="switch"><input type="checkbox" id="textItalicToggle"><span class="slider"></span></label>
+          </div>
+          <div class="setting-item">
+            <label for="textUnderlineToggle">Underline</label>
+            <label class="switch"><input type="checkbox" id="textUnderlineToggle"><span class="slider"></span></label>
+          </div>
+
+          <div class="section-title">Layout</div>
+          <div class="setting-item">
+            <label for="showLineNumbersToggle">Show line numbers</label>
+            <label class="switch"><input type="checkbox" id="showLineNumbersToggle"><span class="slider"></span></label>
+          </div>
+          <div class="setting-item">
+            <label for="wordWrapToggle">Word wrap</label>
+            <label class="switch"><input type="checkbox" id="wordWrapToggle"><span class="slider"></span></label>
+          </div>
+
+          <div class="section-title">Background</div>
+          <div class="setting-item">
+            <label for="bgImageSelect">Background image</label>
+            <select id="bgImageSelect">
+              <option value="none">None</option>
+              <option value="imported">Imported image</option>
+            </select>
+          </div>
+          <div class="setting-item">
+            <label for="bgHazyToggle">Hazy (blur)</label>
+            <label class="switch"><input type="checkbox" id="bgHazyToggle"><span class="slider"></span></label>
+          </div>
+          <div class="setting-item">
+            <label for="bgInsertionToggle">Darken for readability</label>
+            <label class="switch"><input type="checkbox" id="bgInsertionToggle"><span class="slider"></span></label>
+          </div>
+          <div class="setting-item">
+            <label>Import background image</label>
+            <button class="btn-secondary" data-action="importBg">Import</button>
+          </div>
         </div>
-      </div>
-      <div class="field-group" id="customExtContainer" style="display: none;">
-        <input type="text" id="customExtInput" placeholder="Enter custom extension (e.g. .log)">
-      </div>
-      <div class="modal-actions">
-        <button class="btn-secondary" onclick="closeExportModal()">Cancel</button>
-        <button class="btn-primary" onclick="confirmExport()">Download</button>
-      </div>
-    </div>
-  </div>
 
-  <!-- Templates Selection Modal -->
-  <div class="modal-overlay" id="templateModal">
-    <div class="modal-box">
-      <h3>Load Template</h3>
-      <div class="field-group">
-        <select id="templateSelect"></select>
-      </div>
-      <div class="modal-actions">
-        <button class="btn-secondary" onclick="closeTemplateModal()">Cancel</button>
-        <button class="btn-primary" onclick="loadTemplate()">Load</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Settings Modal -->
-  <div class="modal-overlay" id="settingsModal">
-    <div class="modal-box settings-modal-box">
-      <div class="settings-header">
-        <h3>Settings</h3>
-        <button class="close-btn" onclick="closeSettingsModal()">&times;</button>
-      </div>
-      <div class="settings-body">
-        <div class="settings-sidebar">
-          <button class="tab-btn active" onclick="switchTab('personalisation', event)">Personalisation</button>
-          <button class="tab-btn" onclick="switchTab('defaultConfig', event)">Default config</button>
-          <button class="tab-btn" onclick="switchTab('keybinding', event)">Key binding</button>
-          <button class="tab-btn" onclick="switchTab('templatesManager', event)">Templates</button>
-        </div>
-
-        <div class="settings-content">
-          <!-- 1. Personalisation Tab -->
-          <div class="tab-panel active" id="tab-personalisation">
-            <div class="section-title">Theme</div>
-            
-            <div class="setting-item">
-              <label for="darkThemeToggle">Dark theme</label>
-              <label class="switch">
-                <input type="checkbox" id="darkThemeToggle">
-                <span class="slider"></span>
-              </label>
-            </div>
-
-            <div class="setting-item">
-              <label for="themeColorSelect">Theme color</label>
-              <select id="themeColorSelect">
-                <option value="#007bff">Blue (Default)</option>
-                <option value="#28a745">Green</option>
-                <option value="#6f42c1">Purple</option>
-                <option value="#dc3545">Red</option>
-                <option value="#fd7e14">Orange</option>
-                <option value="#20c997">Teal</option>
-              </select>
-            </div>
-
-            <div class="setting-item">
-              <label for="bgImageSelect">Background image</label>
-              <select id="bgImageSelect">
-                <option value="none">None</option>
-                <option value="imported">Imported Image</option>
-              </select>
-            </div>
-
-            <div class="setting-item nested">
-              <label for="bgHazyToggle">Hazy (Blur)</label>
-              <label class="switch">
-                <input type="checkbox" id="bgHazyToggle">
-                <span class="slider"></span>
-              </label>
-            </div>
-
-            <div class="setting-item nested">
-              <label for="bgInsertionToggle">Insertion (Overlay)</label>
-              <label class="switch">
-                <input type="checkbox" id="bgInsertionToggle">
-                <span class="slider"></span>
-              </label>
-            </div>
-
-            <div class="setting-item nested">
-              <label>Import image</label>
-              <button class="btn-secondary" onclick="triggerBgUpload()">Import</button>
-            </div>
+        <!-- Editor -->
+        <div class="tab-panel" id="tab-editor">
+          <div class="section-title">Typography</div>
+          <div class="setting-item">
+            <label for="defaultFontSelect">Font</label>
+            <select id="defaultFontSelect"></select>
+          </div>
+          <div class="setting-item">
+            <label for="defaultFontSizeSelect">Font size</label>
+            <select id="defaultFontSizeSelect"></select>
+          </div>
+          <div class="setting-item">
+            <label for="defaultLineHeightSelect">Line spacing</label>
+            <select id="defaultLineHeightSelect">
+              <option value="1.2">Compact (1.2)</option>
+              <option value="1.5">Normal (1.5)</option>
+              <option value="1.8">Relaxed (1.8)</option>
+              <option value="2">Double (2.0)</option>
+            </select>
           </div>
 
-          <!-- 2. Default Config Tab -->
-          <div class="tab-panel" id="tab-defaultConfig">
-            <div class="setting-item">
-              <label for="spellcheckToggle">Spell check</label>
-              <label class="switch">
-                <input type="checkbox" id="spellcheckToggle">
-                <span class="slider"></span>
-              </label>
-            </div>
-
-            <div class="setting-item">
-              <label for="defaultFontSelect">Font</label>
-              <select id="defaultFontSelect">
-                <option value="'Consolas', 'Courier New', monospace">Consolas / Monospace</option>
-                <option value="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">Sans-Serif</option>
-                <option value="Georgia, serif">Serif</option>
-                <option value="'Comic Sans MS', cursive, sans-serif">Comic Sans</option>
-              </select>
-            </div>
-
-            <div class="setting-item">
-              <label for="defaultExtSelect">Exhaustion (Extension)</label>
-              <select id="defaultExtSelect">
-                <option value=".txt">.txt</option>
-                <option value=".md">.md</option>
-                <option value=".html">.html</option>
-                <option value=".json">.json</option>
-              </select>
-            </div>
-
-            <div class="setting-item">
-              <label for="defaultLineHeightSelect">Line spacing</label>
-              <select id="defaultLineHeightSelect">
-                <option value="1.2">Compact (1.2)</option>
-                <option value="1.5">Normal (1.5)</option>
-                <option value="1.8">Relaxed (1.8)</option>
-              </select>
-            </div>
-
-            <div class="section-title">Wording</div>
-
-            <div class="setting-item nested">
-              <label for="wordWrapToggle">Word Wrap</label>
-              <label class="switch">
-                <input type="checkbox" id="wordWrapToggle">
-                <span class="slider"></span>
-              </label>
-            </div>
-
-            <div class="setting-item nested">
-              <label for="wordingFontSelect">Font</label>
-              <select id="wordingFontSelect">
-                <option value="'Consolas', 'Courier New', monospace">Consolas / Monospace</option>
-                <option value="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">Sans-Serif</option>
-                <option value="Georgia, serif">Serif</option>
-                <option value="'Comic Sans MS', cursive, sans-serif">Comic Sans</option>
-              </select>
-            </div>
-
-            <div class="setting-item nested">
-              <label for="wordingLineHeightSelect">Line spacing</label>
-              <select id="wordingLineHeightSelect">
-                <option value="1.2">Compact (1.2)</option>
-                <option value="1.5">Normal (1.5)</option>
-                <option value="1.8">Relaxed (1.8)</option>
-              </select>
-            </div>
+          <div class="section-title">Behaviour</div>
+          <div class="setting-item">
+            <label for="spellcheckToggle">Spell check</label>
+            <label class="switch"><input type="checkbox" id="spellcheckToggle"><span class="slider"></span></label>
           </div>
-
-          <!-- 3. Key Binding Tab -->
-          <div class="tab-panel" id="tab-keybinding">
-            <div class="section-title">Keyboard Shortcuts</div>
-            <table class="keybindings-list">
-              <thead>
-                <tr>
-                  <th>Action</th>
-                  <th>Shortcut</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr><td>Save Document</td><td><span class="key-badge">Ctrl + S</span></td></tr>
-                <tr><td>Find Text</td><td><span class="key-badge">Ctrl + F</span></td></tr>
-                <tr><td>Find & Replace All</td><td><span class="key-badge">Ctrl + Shift + F</span></td></tr>
-                <tr><td>Undo</td><td><span class="key-badge">Ctrl + ←</span></td></tr>
-                <tr><td>Redo</td><td><span class="key-badge">Ctrl + →</span></td></tr>
-                <tr><td>Select All</td><td><span class="key-badge">Ctrl + A</span></td></tr>
-                <tr><td>Cut</td><td><span class="key-badge">Ctrl + X</span></td></tr>
-                <tr><td>Copy</td><td><span class="key-badge">Ctrl + C</span></td></tr>
-                <tr><td>Paste</td><td><span class="key-badge">Ctrl + V</span></td></tr>
-              </tbody>
-            </table>
+          <div class="setting-item">
+            <label for="autoIndentToggle">Auto-indent on Enter</label>
+            <label class="switch"><input type="checkbox" id="autoIndentToggle"><span class="slider"></span></label>
           </div>
-
-          <!-- 4. Templates Manager Tab -->
-          <div class="tab-panel" id="tab-templatesManager">
-            <div class="section-title">Manage Templates</div>
-            <div id="templatesListContainer"></div>
-
-            <div class="section-title" style="margin-top: 16px;">Add New Template</div>
-            <div class="field-group">
-              <input type="text" id="newTemplateName" placeholder="Template Name">
-            </div>
-            <div class="field-group">
-              <textarea id="newTemplateContent" placeholder="Template Content..." style="height: 70px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 6px; padding: 8px; font-size: 12px;"></textarea>
-            </div>
-            <button class="btn-primary" onclick="addNewTemplate()">Add Template</button>
+          <div class="setting-item">
+            <label for="autosaveToggle">Autosave to browser</label>
+            <label class="switch"><input type="checkbox" id="autosaveToggle"><span class="slider"></span></label>
+          </div>
+          <div class="setting-item">
+            <label for="tabSizeSelect">Tab size</label>
+            <select id="tabSizeSelect">
+              <option value="2">2 spaces</option>
+              <option value="4">4 spaces</option>
+              <option value="8">8 spaces</option>
+            </select>
+          </div>
+          <div class="setting-item">
+            <label for="defaultExtSelect">Default download extension</label>
+            <select id="defaultExtSelect">
+              <option value=".txt">.txt</option>
+              <option value=".md">.md</option>
+              <option value=".html">.html</option>
+              <option value=".json">.json</option>
+              <option value=".py">.py</option>
+              <option value=".js">.js</option>
+              <option value=".c">.c</option>
+              <option value=".pdf">.pdf</option>
+            </select>
           </div>
         </div>
-      </div>
-      <div class="settings-footer">
-        <button class="btn-secondary" onclick="closeSettingsModal()">Cancel</button>
-        <button class="btn-primary" onclick="saveSettings()">Save</button>
+
+        <!-- Dev mode -->
+        <div class="tab-panel" id="tab-dev">
+          <div class="section-title">Editor mode</div>
+          <div class="setting-item">
+            <label for="vimModeToggle">Vim keybindings</label>
+            <label class="switch"><input type="checkbox" id="vimModeToggle"><span class="slider"></span></label>
+          </div>
+          <p class="field-help" style="margin-bottom:12px">
+            Normal mode: <b>h j k l</b> move · <b>w / b</b> word · <b>0 / $</b> line ends ·
+            <b>gg / G</b> top / bottom · <b>i a o O I A</b> insert · <b>x</b> delete char ·
+            <b>dd</b> delete line · <b>yy</b> yank · <b>p</b> paste · <b>u</b> undo ·
+            <b>:</b> command mode (<code>:w</code>, <code>:wq</code>, <code>:q</code>, <code>:set nu</code>).
+          </p>
+
+          <div class="section-title">Code</div>
+          <div class="setting-item">
+            <label for="languageSelectSettings">Language</label>
+            <select id="languageSelectSettings"></select>
+          </div>
+          <div class="setting-item">
+            <label for="syntaxHighlightToggle">Syntax highlighting</label>
+            <label class="switch"><input type="checkbox" id="syntaxHighlightToggle"><span class="slider"></span></label>
+          </div>
+          <div class="setting-item">
+            <label>Run current code</label>
+            <button class="btn-secondary" data-action="toggleRunPanel">Open run panel</button>
+          </div>
+          <p class="field-help" style="margin-top:8px">
+            Supported in-browser runners: <b>Python</b> (Pyodide, ~10 MB first load),
+            <b>JavaScript</b>, and <b>HTML</b>. <b>C</b> compilation requires a native
+            toolchain and is not available in the browser — the run panel will show your
+            source code unchanged.
+          </p>
+        </div>
+
+        <!-- Key bindings -->
+        <div class="tab-panel" id="tab-keybindings">
+          <div class="section-title">Keyboard shortcuts</div>
+          <table class="keybindings-list">
+            <thead><tr><th>Action</th><th>Shortcut</th></tr></thead>
+            <tbody>
+              <tr><td>Save document</td><td><span class="key-badge">Ctrl + S</span></td></tr>
+              <tr><td>New document</td><td><span class="key-badge">Ctrl + N</span></td></tr>
+              <tr><td>Print</td><td><span class="key-badge">Ctrl + P</span></td></tr>
+              <tr><td>Bold</td><td><span class="key-badge">Ctrl + B</span></td></tr>
+              <tr><td>Italic</td><td><span class="key-badge">Ctrl + I</span></td></tr>
+              <tr><td>Underline</td><td><span class="key-badge">Ctrl + U</span></td></tr>
+              <tr><td>Find</td><td><span class="key-badge">Ctrl + F</span></td></tr>
+              <tr><td>Find &amp; replace</td><td><span class="key-badge">Ctrl + Shift + F</span></td></tr>
+              <tr><td>Go to line</td><td><span class="key-badge">Ctrl + G</span></td></tr>
+              <tr><td>Undo</td><td><span class="key-badge">Ctrl + Z</span></td></tr>
+              <tr><td>Redo</td><td><span class="key-badge">Ctrl + Y</span></td></tr>
+              <tr><td>Duplicate line</td><td><span class="key-badge">Ctrl + D</span></td></tr>
+              <tr><td>Delete line</td><td><span class="key-badge">Ctrl + Shift + K</span></td></tr>
+              <tr><td>Indent / outdent</td><td><span class="key-badge">Tab</span> / <span class="key-badge">Shift + Tab</span></td></tr>
+              <tr><td>Zoom in / out</td><td><span class="key-badge">Ctrl + +</span> / <span class="key-badge">Ctrl + −</span></td></tr>
+              <tr><td>Settings</td><td><span class="key-badge">Ctrl + ,</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Templates manager -->
+        <div class="tab-panel" id="tab-templates">
+          <div class="section-title">Your templates</div>
+          <div id="templatesListContainer"></div>
+          <div class="section-title">Add a template</div>
+          <div class="field-group">
+            <input type="text" id="newTemplateName" placeholder="Template name">
+          </div>
+          <div class="field-group">
+            <textarea id="newTemplateContent" class="template-textarea" placeholder="Template content…"></textarea>
+          </div>
+          <button class="btn-primary" data-action="addTemplate">Add template</button>
+        </div>
+
       </div>
     </div>
-  </div>
 
-  <!-- Custom Confirmation Modal -->
-  <div class="modal-overlay" id="confirmModal">
-    <div class="modal-box">
-      <h3 id="confirmTitle">Warning</h3>
-      <p id="confirmMessage" style="margin-bottom: 15px; font-size: 14px; color: var(--text-muted);">Are you sure?</p>
-      <div class="modal-actions">
-        <button class="btn-secondary" id="confirmCancelBtn">Cancel</button>
-        <button class="btn-primary" id="confirmOkBtn">Confirm</button>
-      </div>
+    <div class="settings-footer">
+      <button class="btn-secondary" data-close>Cancel</button>
+      <button class="btn-primary" data-action="saveSettings">Save</button>
     </div>
   </div>
+</div>
 
-  <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+<script>
+'use strict';
 
-    const editor = document.getElementById('editor');
-    const fileInput = document.getElementById('fileInput');
-    const bgFileInput = document.getElementById('bgFileInput');
-    const undoBtn = document.getElementById('undoBtn');
-    const redoBtn = document.getElementById('redoBtn');
-    const toast = document.getElementById('toast');
+/* ============================================================
+   0. PDF worker
+   ============================================================ */
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-    let history = [''];
-    let historyIndex = 0;
-    let debounceTimer;
+/* ============================================================
+   1. Constants
+   ============================================================ */
+const APP_VERSION = '1.1';
+const CHANGELOG_KEY = 'landen_changelog_dismissed';
+const STORAGE = {
+  doc: 'landen_editor_document',
+  settings: 'landen_editor_settings',
+  templates: 'landen_editor_templates'
+};
 
-    /* Initial Default Templates */
-    const DEFAULT_TEMPLATES = [
-      { id: 'essay', name: 'Academic Essay', content: 'Title of Essay\n\nI. Introduction\n   - Hook: \n   - Background Information: \n   - Thesis Statement: \n\nII. Body Paragraph 1\n   - Topic Sentence: \n   - Supporting Evidence: \n   - Explanation/Analysis: \n   - Transition: \n\nIII. Body Paragraph 2\n   - Topic Sentence: \n   - Supporting Evidence: \n   - Explanation/Analysis: \n   - Transition: \n\nV. Conclusion\n   - Restate Thesis Statement: \n   - Summary of Main Points: \n   - Final Concluding Thought: ' },
-      { id: 'meeting', name: 'Meeting Notes', content: '# Meeting Notes\n\nDate: \nAttendees: \n\n## Agenda\n- \n\n## Action Items\n- [ ] ' },
-      { id: 'todo', name: 'To-Do List', content: '# To-Do List\n\n- [ ] High Priority Task\n- [ ] Medium Priority Task\n- [ ] Low Priority Task' },
-      { id: 'html', name: 'HTML Skeleton', content: '<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <title>Document</title>\n</head>\n<body>\n  <h1>Hello World</h1>\n</body>\n</html>' },
-      { id: 'markdown', name: 'Markdown Document', content: '# Document Title\n\n## Subheading\n\nWrite your content here...\n\n- Bullet point 1\n- Bullet point 2' }
-    ];
+const FONT_CHOICES = [
+  { value: "'Consolas', 'Courier New', monospace", label: 'Consolas / Monospace' },
+  { value: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", label: 'Sans-serif' },
+  { value: "Georgia, 'Times New Roman', serif", label: 'Serif' },
+  { value: "'Comic Sans MS', 'Comic Sans', cursive", label: 'Comic Sans' }
+];
+const FONT_SIZES = [10, 12, 14, 16, 18, 20, 24, 28, 32, 40, 48];
 
-    let templates = [...DEFAULT_TEMPLATES];
+const LANGUAGES = [
+  { value: 'none', label: 'Plain text' },
+  { value: 'python', label: 'Python' },
+  { value: 'javascript', label: 'JavaScript' },
+  { value: 'html', label: 'HTML' },
+  { value: 'css', label: 'CSS' },
+  { value: 'c', label: 'C' },
+  { value: 'json', label: 'JSON' },
+  { value: 'markdown', label: 'Markdown' }
+];
+const LANG_LABELS = Object.fromEntries(LANGUAGES.map(l => [l.value, l.label]));
 
-    /* Settings Defaults */
-    const DEFAULT_SETTINGS = {
-      darkTheme: window.matchMedia('(prefers-color-scheme: dark)').matches,
-      themeColor: '#007bff',
-      bgImage: 'none',
-      bgImageData: '',
-      bgHazy: false,
-      bgInsertion: false,
-      spellcheck: false,
-      fontFamily: "'Consolas', 'Courier New', monospace",
-      defaultExt: ".txt",
-      lineHeight: "1.5",
-      wordWrap: true,
-      wordingFont: "'Consolas', 'Courier New', monospace",
-      wordingLineHeight: "1.5",
-      fontSize: "16px"
+const INLINE_MARKS = {
+  bold:      { before: '**',  after: '**' },
+  italic:    { before: '*',   after: '*' },
+  underline: { before: '<u>', after: '</u>' }
+};
+
+const RULE_COLORS = {
+  light: {
+    subtle: 'rgba(0, 0, 0, 0.10)',
+    gray:   'rgba(0, 0, 0, 0.22)',
+    blue:   'rgba(0, 90, 200, 0.32)',
+    green:  'rgba(0, 140, 80, 0.32)',
+    red:    'rgba(200, 50, 50, 0.32)'
+  },
+  dark: {
+    subtle: 'rgba(255, 255, 255, 0.09)',
+    gray:   'rgba(255, 255, 255, 0.18)',
+    blue:   'rgba(90, 150, 255, 0.38)',
+    green:  'rgba(80, 200, 140, 0.38)',
+    red:    'rgba(255, 110, 110, 0.38)'
+  }
+};
+const PAPER_STYLES = ['none', 'ruled', 'grid', 'dotted'];
+const PAPER_LABELS = { none: 'None', ruled: 'Ruled', grid: 'Grid', dotted: 'Dotted' };
+
+const DEFAULT_TEMPLATES = [
+  { id: 'essay', name: 'Academic Essay', content:
+`Title of Essay
+
+I. Introduction
+   - Hook:
+   - Background information:
+   - Thesis statement:
+
+II. Body Paragraph 1
+   - Topic sentence:
+   - Supporting evidence:
+   - Analysis:
+   - Transition:
+
+III. Body Paragraph 2
+   - Topic sentence:
+   - Supporting evidence:
+   - Analysis:
+   - Transition:
+
+IV. Conclusion
+   - Restate thesis:
+   - Summary of main points:
+   - Final thought:` },
+  { id: 'meeting', name: 'Meeting Notes', content:
+`# Meeting Notes
+
+Date:
+Attendees:
+
+## Agenda
+-
+
+## Action Items
+- [ ] ` },
+  { id: 'todo', name: 'To-Do List', content:
+`# To-Do List
+
+- [ ] High priority task
+- [ ] Medium priority task
+- [ ] Low priority task` },
+  { id: 'html', name: 'HTML Skeleton', content:
+`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Document</title>
+</head>
+<body>
+  <h1>Hello World</h1>
+</body>
+</html>` },
+  { id: 'python', name: 'Python Script', content:
+`# Python starter
+def greet(name):
+    if name:
+        print(f"Hello, {name}!")
+    else:
+        print("Hello, world!")
+
+greet("Landen")` }
+];
+
+const DEFAULT_SETTINGS = {
+  darkTheme: false,
+  themeColor: '#007bff',
+  paperStyle: 'none',
+  ruleColor: 'subtle',
+  marginLine: false,
+  textBold: false,
+  textItalic: false,
+  textUnderline: false,
+  bgImage: 'none',
+  bgImageData: '',
+  bgHazy: false,
+  bgInsertion: false,
+  showLineNumbers: true,
+  wordWrap: true,
+  fontFamily: FONT_CHOICES[0].value,
+  fontSize: 16,
+  lineHeight: 1.5,
+  spellcheck: false,
+  autoIndent: true,
+  autosave: false,
+  tabSize: 4,
+  defaultExt: '.txt',
+  vimMode: false,
+  language: 'none',
+  syntaxHighlight: true
+};
+
+/* Element shortcuts */
+const $  = (sel) => document.querySelector(sel);
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+const editor          = $('#editor');
+const gutter          = $('#gutter');
+const lineNumbersEl   = $('#lineNumbers');
+const editorInner     = $('#editorInner');
+const textColumn      = $('#textColumn');
+const highlightLayer  = $('#highlightLayer');
+const highlightCode   = $('#highlightCode');
+const undoBtn         = $('#undoBtn');
+const redoBtn         = $('#redoBtn');
+const lineNumbersBtn  = $('#lineNumbersBtn');
+const wordWrapBtn     = $('#wordWrapBtn');
+const paperBtn        = $('#paperBtn');
+const runBtn          = $('#runBtn');
+const runPanel        = $('#runPanel');
+const runFrame        = $('#runFrame');
+const runOutput       = $('#runOutput');
+const runStatus       = $('#runStatus');
+const runLangLabel    = $('#runLangLabel');
+const fileInput       = $('#fileInput');
+const bgFileInput     = $('#bgFileInput');
+const toastEl         = $('#toast');
+const root            = document.documentElement;
+
+/* ============================================================
+   2. State
+   ============================================================ */
+let settings = { ...DEFAULT_SETTINGS };
+let templates = [...DEFAULT_TEMPLATES];
+
+let history = [''];
+let historyIndex = 0;
+let historyTimer = null;
+let autosaveTimer = null;
+let lineNumberFrame = null;
+let isDirty = false;
+let pythonLoading = null;
+
+let findMatches = [];
+let findCursor = -1;
+const findInput = $('#findInput');
+const findMeta  = $('#findMeta');
+
+const vim = {
+  enabled: false,
+  mode: 'normal',
+  pending: '',
+  register: '',
+  registerIsLine: false,
+  commandBuffer: ''
+};
+
+/* ============================================================
+   3. Small utilities
+   ============================================================ */
+function showToast(message, ms = 2000) {
+  toastEl.textContent = message;
+  toastEl.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => toastEl.classList.remove('show'), ms);
+}
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeAllModals() { $$('.modal-overlay.open').forEach(m => m.classList.remove('open')); }
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+/* ============================================================
+   4. Populate option lists
+   ============================================================ */
+function populateSelect(select, items, selected) {
+  select.innerHTML = '';
+  items.forEach(item => {
+    const opt = document.createElement('option');
+    if (typeof item === 'object') {
+      opt.value = item.value;
+      opt.textContent = item.label;
+    } else {
+      opt.value = String(item);
+      opt.textContent = String(item);
+    }
+    select.appendChild(opt);
+  });
+  if (selected !== undefined) select.value = selected;
+}
+function buildOptionLists() {
+  const sizeItems = FONT_SIZES.map(n => ({ value: String(n), label: n + 'px' }));
+  populateSelect($('#toolbarFontFamily'), FONT_CHOICES);
+  populateSelect($('#defaultFontSelect'), FONT_CHOICES);
+  populateSelect($('#toolbarFontSize'), sizeItems);
+  populateSelect($('#defaultFontSizeSelect'), sizeItems);
+  populateSelect($('#languageSelect'), LANGUAGES);
+  populateSelect($('#languageSelectSettings'), LANGUAGES);
+}
+
+/* ============================================================
+   5. Syntax highlighting
+   ============================================================ */
+const LANG_RULES = {
+  python: {
+    comment: /#[^\n]*/,
+    string: /"""[\s\S]*?"""|'''[\s\S]*?'''|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'/,
+    keyword: /\b(?:False|None|True|and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield)\b/,
+    builtin: /\b(?:abs|all|any|bin|bool|bytes|callable|chr|dict|dir|enumerate|eval|filter|float|format|frozenset|getattr|hasattr|hash|help|hex|id|input|int|isinstance|issubclass|iter|len|list|map|max|min|next|object|oct|open|ord|pow|print|range|repr|reversed|round|set|setattr|slice|sorted|str|sum|super|tuple|type|vars|zip)\b/,
+    number: /\b\d+\.?\d*(?:[eE][-+]?\d+)?\b/,
+    function: /(?<=\bdef\s+)\w+/
+  },
+  javascript: {
+    comment: /\/\/[^\n]*|\/\*[\s\S]*?\*\//,
+    string: /`(?:\\.|[^`\\])*`|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'/,
+    keyword: /\b(?:async|await|break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|from|function|get|if|import|in|instanceof|let|new|of|return|set|static|super|switch|this|throw|try|typeof|var|void|while|with|yield)\b/,
+    builtin: /\b(?:Array|Boolean|Date|Error|Function|JSON|Map|Math|Number|Object|Promise|RegExp|Set|String|Symbol|console|document|window|undefined|null|true|false|NaN|Infinity)\b/,
+    number: /\b\d+\.?\d*(?:[eE][-+]?\d+)?\b/,
+    function: /\b\w+(?=\s*\()/
+  },
+  c: {
+    comment: /\/\/[^\n]*|\/\*[\s\S]*?\*\//,
+    string: /"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'/,
+    keyword: /\b(?:auto|break|case|char|const|continue|default|do|double|else|enum|extern|float|for|goto|if|inline|int|long|register|restrict|return|short|signed|sizeof|static|struct|switch|typedef|union|unsigned|void|volatile|while|_Bool)\b/,
+    builtin: /\b(?:NULL|EOF|size_t|printf|scanf|malloc|free|memcpy|memset|strlen|strcpy|strcmp|puts|fopen|fclose|fread|fwrite)\b/,
+    number: /\b(?:0[xX][0-9a-fA-F]+|\d+\.?\d*[fFlLuU]*)\b/,
+    preproc: /^\s*#\s*\w+/m,
+    function: /\b\w+(?=\s*\()/
+  },
+  html: {
+    comment: /<!--[\s\S]*?-->/,
+    string: /"[^"]*"|'[^']*'/,
+    tag: /<\/?[a-zA-Z][\w-]*|\/?>/,
+    attr: /\b[a-zA-Z-]+(?=\s*=)/
+  },
+  css: {
+    comment: /\/\*[\s\S]*?\*\//,
+    string: /"[^"]*"|'[^']*'/,
+    keyword: /@[a-zA-Z-]+|!important/,
+    number: /\b\d+\.?\d*(?:px|em|rem|%|vh|vw|s|ms|deg|fr)?\b/,
+    property: /\b[a-z-]+(?=\s*:)/,
+    selector: /[^}{]*(?=\s*\{)/
+  },
+  json: {
+    string: /"(?:\\.|[^"\\])*"/,
+    number: /-?\b\d+\.?\d*(?:[eE][-+]?\d+)?\b/,
+    keyword: /\b(?:true|false|null)\b/
+  },
+  markdown: {
+    heading: /^#{1,6}[^\n]*/m,
+    code: /`[^`]+`/,
+    bold: /\*\*[^*\n]+\*\*/,
+    italic: /\*[^*\n]+\*/,
+    link: /\[[^\]]+\]\([^)]+\)/
+  }
+};
+
+const COMPILED_LANGS = {};
+function compileLang(lang) {
+  if (COMPILED_LANGS[lang]) return COMPILED_LANGS[lang];
+  const rules = LANG_RULES[lang];
+  if (!rules) return null;
+  const names = Object.keys(rules);
+  const sources = names.map(n => `(${rules[n].source})`);
+  const regex = new RegExp(sources.join('|'), 'gm');
+  const compiled = { regex, names };
+  COMPILED_LANGS[lang] = compiled;
+  return compiled;
+}
+
+function highlightCodeText(code, lang) {
+  if (lang === 'none' || !LANG_RULES[lang]) return escapeHtml(code);
+  const compiled = compileLang(lang);
+  if (!compiled) return escapeHtml(code);
+  const { regex, names } = compiled;
+  regex.lastIndex = 0;
+  let result = '';
+  let last = 0;
+  let m;
+  while ((m = regex.exec(code)) !== null) {
+    if (m.index > last) result += escapeHtml(code.slice(last, m.index));
+    let kind = 'plain';
+    for (let i = 0; i < names.length; i++) {
+      if (m[i + 1] !== undefined) { kind = names[i]; break; }
+    }
+    result += `<span class="tok-${kind}">${escapeHtml(m[0])}</span>`;
+    last = m.index + m[0].length;
+    if (m[0].length === 0) regex.lastIndex++;
+  }
+  if (last < code.length) result += escapeHtml(code.slice(last));
+  return result;
+}
+
+function updateHighlightLayer() {
+  const showHL =
+    settings.syntaxHighlight &&
+    settings.language !== 'none' &&
+    LANG_RULES[settings.language];
+  editorInner.classList.toggle('hl-on', Boolean(showHL));
+  if (!showHL) return;
+  highlightCode.innerHTML = highlightCodeText(editor.value, settings.language) + '\n';
+  syncHighlightScroll();
+}
+
+function syncHighlightScroll() {
+  if (!editorInner.classList.contains('hl-on')) return;
+  highlightLayer.style.transform =
+    `translate(${-editor.scrollLeft}px, ${-editor.scrollTop}px)`;
+}
+
+/* ============================================================
+   6. Settings
+   ============================================================ */
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem(STORAGE.settings);
+    if (raw) settings = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    else settings = {
+      ...DEFAULT_SETTINGS,
+      darkTheme: window.matchMedia('(prefers-color-scheme: dark)').matches
     };
+  } catch {
+    settings = { ...DEFAULT_SETTINGS };
+  }
+  applySettings();
+}
+function persistSettings() {
+  try { localStorage.setItem(STORAGE.settings, JSON.stringify(settings)); }
+  catch { showToast('Could not save settings (storage full?)'); }
+}
 
-    let savedSettings = { ...DEFAULT_SETTINGS };
+function applySettings() {
+  document.body.classList.toggle('dark-theme', settings.darkTheme);
+  root.style.setProperty('--accent-color', settings.themeColor);
 
-    /* Initialization */
-    window.addEventListener('DOMContentLoaded', () => {
-      loadTemplates();
-      loadSettings();
+  const hasBg = settings.bgImage === 'imported' && settings.bgImageData;
+  root.style.setProperty('--bg-image', hasBg ? `url(${settings.bgImageData})` : 'none');
+  root.style.setProperty('--bg-blur', settings.bgHazy ? '8px' : '0px');
+  root.style.setProperty('--bg-overlay-opacity', settings.bgInsertion ? '0.72' : '0');
 
-      const savedText = localStorage.getItem('local_editor_document');
-      if (savedText !== null) {
-        editor.value = savedText;
-        history = [savedText];
-        historyIndex = 0;
-        updateButtons();
+  root.style.setProperty('--editor-font', settings.fontFamily);
+  root.style.setProperty('--editor-size', settings.fontSize + 'px');
+  root.style.setProperty('--editor-leading', String(settings.lineHeight));
+  root.style.setProperty('--editor-weight', settings.textBold ? '700' : '400');
+  root.style.setProperty('--editor-style', settings.textItalic ? 'italic' : 'normal');
+  root.style.setProperty('--editor-decoration', settings.textUnderline ? 'underline' : 'none');
+
+  applyPaper();
+
+  editor.spellcheck = settings.spellcheck;
+  editor.style.tabSize = settings.tabSize;
+  editor.classList.toggle('wrap-off', !settings.wordWrap);
+
+  $('#toolbarFontFamily').value = settings.fontFamily;
+  $('#toolbarFontSize').value = String(settings.fontSize);
+  $('#languageSelect').value = settings.language;
+  lineNumbersBtn.classList.toggle('active', settings.showLineNumbers);
+  wordWrapBtn.classList.toggle('active', settings.wordWrap);
+  paperBtn.classList.toggle('active', settings.paperStyle !== 'none');
+  paperBtn.title = `Paper: ${PAPER_LABELS[settings.paperStyle]} (click to cycle)`;
+  runBtn.classList.toggle('active', runPanel.classList.contains('open'));
+
+  syncMenuChecks();
+
+  const statusPaper = $('#statusPaper');
+  statusPaper.textContent = settings.paperStyle === 'none' ? '' : `Paper: ${PAPER_LABELS[settings.paperStyle]}`;
+  const statusLang = $('#statusLang');
+  statusLang.textContent = settings.language === 'none' ? '' : LANG_LABELS[settings.language] || '';
+
+  gutter.style.display = settings.showLineNumbers ? '' : 'none';
+  runLangLabel.textContent = 'Output — ' + (LANG_LABELS[settings.language] || 'Text');
+
+  updateVimStatus();
+  updateHighlightLayer();
+  scheduleLineNumbers();
+}
+
+function applyPaper() {
+  editorInner.classList.remove('paper-ruled', 'paper-grid', 'paper-dotted');
+  if (settings.paperStyle !== 'none') editorInner.classList.add('paper-' + settings.paperStyle);
+  const palette = RULE_COLORS[settings.darkTheme ? 'dark' : 'light'];
+  root.style.setProperty('--rule-color', palette[settings.ruleColor] || palette.subtle);
+  textColumn.classList.toggle('show-margin', settings.marginLine);
+}
+
+function syncMenuChecks() {
+  $$('[data-toggle]').forEach(btn => {
+    btn.classList.toggle('checked', Boolean(settings[btn.dataset.toggle]));
+  });
+}
+
+function populateSettingsForm() {
+  $('#darkThemeToggle').checked = settings.darkTheme;
+  $('#themeColorSelect').value = settings.themeColor;
+  $('#paperStyleSelect').value = settings.paperStyle;
+  $('#ruleColorSelect').value = settings.ruleColor;
+  $('#marginLineToggle').checked = settings.marginLine;
+  $('#textBoldToggle').checked = settings.textBold;
+  $('#textItalicToggle').checked = settings.textItalic;
+  $('#textUnderlineToggle').checked = settings.textUnderline;
+  $('#bgImageSelect').value = settings.bgImage;
+  $('#bgHazyToggle').checked = settings.bgHazy;
+  $('#bgInsertionToggle').checked = settings.bgInsertion;
+  $('#showLineNumbersToggle').checked = settings.showLineNumbers;
+  $('#wordWrapToggle').checked = settings.wordWrap;
+  $('#spellcheckToggle').checked = settings.spellcheck;
+  $('#autoIndentToggle').checked = settings.autoIndent;
+  $('#autosaveToggle').checked = settings.autosave;
+  $('#defaultFontSelect').value = settings.fontFamily;
+  $('#defaultFontSizeSelect').value = String(settings.fontSize);
+  $('#defaultLineHeightSelect').value = String(settings.lineHeight);
+  $('#tabSizeSelect').value = String(settings.tabSize);
+  $('#defaultExtSelect').value = settings.defaultExt;
+  $('#vimModeToggle').checked = settings.vimMode;
+  $('#languageSelectSettings').value = settings.language;
+  $('#syntaxHighlightToggle').checked = settings.syntaxHighlight;
+}
+
+function readSettingsForm() {
+  settings = {
+    ...settings,
+    darkTheme: $('#darkThemeToggle').checked,
+    themeColor: $('#themeColorSelect').value,
+    paperStyle: $('#paperStyleSelect').value,
+    ruleColor: $('#ruleColorSelect').value,
+    marginLine: $('#marginLineToggle').checked,
+    textBold: $('#textBoldToggle').checked,
+    textItalic: $('#textItalicToggle').checked,
+    textUnderline: $('#textUnderlineToggle').checked,
+    bgImage: $('#bgImageSelect').value,
+    bgHazy: $('#bgHazyToggle').checked,
+    bgInsertion: $('#bgInsertionToggle').checked,
+    showLineNumbers: $('#showLineNumbersToggle').checked,
+    wordWrap: $('#wordWrapToggle').checked,
+    spellcheck: $('#spellcheckToggle').checked,
+    autoIndent: $('#autoIndentToggle').checked,
+    autosave: $('#autosaveToggle').checked,
+    fontFamily: $('#defaultFontSelect').value,
+    fontSize: parseInt($('#defaultFontSizeSelect').value, 10),
+    lineHeight: parseFloat($('#defaultLineHeightSelect').value),
+    tabSize: parseInt($('#tabSizeSelect').value, 10),
+    defaultExt: $('#defaultExtSelect').value,
+    vimMode: $('#vimModeToggle').checked,
+    language: $('#languageSelectSettings').value,
+    syntaxHighlight: $('#syntaxHighlightToggle').checked
+  };
+}
+
+/* ============================================================
+   7. Vim mode
+   ============================================================ */
+function updateVimStatus() {
+  const el = $('#statusVim');
+  vim.enabled = settings.vimMode;
+  if (!vim.enabled) {
+    el.style.display = 'none';
+    editor.readOnly = false;
+    editor.classList.remove('vim-normal');
+    return;
+  }
+  el.style.display = '';
+  if (vim.mode === 'command') {
+    el.textContent = ':' + vim.commandBuffer;
+  } else {
+    el.textContent = '-- ' + vim.mode.toUpperCase() + ' --';
+  }
+  editor.readOnly = vim.mode !== 'insert';
+  editor.classList.toggle('vim-normal', vim.mode !== 'insert');
+}
+function vimSetCaret(pos) {
+  editor.setSelectionRange(pos, pos);
+  const cs = getComputedStyle(editor);
+  const lineHeight = parseFloat(cs.lineHeight) || 20;
+  const text = editor.value.slice(0, pos);
+  const lineIndex = (text.match(/\n/g) || []).length;
+  const y = lineIndex * lineHeight;
+  const top = editor.scrollTop;
+  const bottom = top + editor.clientHeight - lineHeight * 2;
+  if (y < top) editor.scrollTop = y;
+  else if (y > bottom) editor.scrollTop = y - editor.clientHeight + lineHeight * 3;
+}
+function vimMoveLeft() { const p = editor.selectionStart; if (p > 0) vimSetCaret(p - 1); }
+function vimMoveRight() { const p = editor.selectionStart; if (p < editor.value.length) vimSetCaret(p + 1); }
+function vimMoveUp() {
+  const v = editor.value;
+  const pos = editor.selectionStart;
+  const lineStart = v.lastIndexOf('\n', pos - 1) + 1;
+  if (lineStart === 0) return;
+  const col = pos - lineStart;
+  const prevStart = v.lastIndexOf('\n', lineStart - 2) + 1;
+  const prevEnd = lineStart - 1;
+  vimSetCaret(Math.min(prevStart + col, prevEnd));
+}
+function vimMoveDown() {
+  const v = editor.value;
+  const pos = editor.selectionStart;
+  const lineStart = v.lastIndexOf('\n', pos - 1) + 1;
+  const col = pos - lineStart;
+  const lineEnd = v.indexOf('\n', pos);
+  if (lineEnd === -1) return;
+  const nextStart = lineEnd + 1;
+  let nextEnd = v.indexOf('\n', nextStart);
+  if (nextEnd === -1) nextEnd = v.length;
+  vimSetCaret(Math.min(nextStart + col, nextEnd));
+}
+function vimMoveWordForward() {
+  const v = editor.value;
+  let p = editor.selectionStart;
+  while (p < v.length && /\w/.test(v[p])) p++;
+  while (p < v.length && !/\w/.test(v[p])) p++;
+  vimSetCaret(p);
+}
+function vimMoveWordBack() {
+  const v = editor.value;
+  let p = editor.selectionStart;
+  if (p > 0) p--;
+  while (p > 0 && !/\w/.test(v[p])) p--;
+  while (p > 0 && /\w/.test(v[p - 1])) p--;
+  vimSetCaret(p);
+}
+function vimMoveLineStart() {
+  const v = editor.value;
+  const p = editor.selectionStart;
+  vimSetCaret(v.lastIndexOf('\n', p - 1) + 1);
+}
+function vimMoveLineEnd() {
+  const v = editor.value;
+  const p = editor.selectionStart;
+  let lineEnd = v.indexOf('\n', p);
+  if (lineEnd === -1) lineEnd = v.length;
+  vimSetCaret(lineEnd);
+}
+function vimGotoTop() { vimSetCaret(0); }
+function vimGotoBottom() { vimSetCaret(editor.value.length); }
+
+function vimDeleteChar() {
+  const p = editor.selectionStart;
+  if (p >= editor.value.length) return;
+  editor.setRangeText('', p, p + 1, 'end');
+  onContentChanged(true);
+  vimSetCaret(Math.min(p, editor.value.length));
+}
+function vimDeleteLine() {
+  const v = editor.value;
+  const p = editor.selectionStart;
+  const lineStart = v.lastIndexOf('\n', p - 1) + 1;
+  let lineEnd = v.indexOf('\n', p);
+  let cutEnd = lineEnd === -1 ? v.length : lineEnd + 1;
+  vim.register = v.slice(lineStart, lineEnd === -1 ? v.length : lineEnd);
+  vim.registerIsLine = true;
+  editor.setRangeText('', lineStart, cutEnd, 'end');
+  onContentChanged(true);
+  vimSetCaret(Math.min(lineStart, editor.value.length));
+}
+function vimYankLine() {
+  const v = editor.value;
+  const p = editor.selectionStart;
+  const lineStart = v.lastIndexOf('\n', p - 1) + 1;
+  const lineEnd = v.indexOf('\n', p);
+  vim.register = v.slice(lineStart, lineEnd === -1 ? v.length : lineEnd);
+  vim.registerIsLine = true;
+  showToast('Yanked 1 line');
+}
+function vimPaste() {
+  if (!vim.register) return;
+  const p = editor.selectionStart;
+  if (vim.registerIsLine) {
+    const v = editor.value;
+    let lineEnd = v.indexOf('\n', p);
+    if (lineEnd === -1) lineEnd = v.length;
+    editor.setRangeText('\n' + vim.register, lineEnd, lineEnd, 'end');
+  } else {
+    editor.setRangeText(vim.register, p, p, 'end');
+  }
+  onContentChanged(true);
+}
+function vimOpenLineBelow() {
+  const p = editor.selectionStart;
+  const v = editor.value;
+  let lineEnd = v.indexOf('\n', p);
+  if (lineEnd === -1) lineEnd = v.length;
+  editor.setRangeText('\n', lineEnd, lineEnd, 'end');
+  vim.mode = 'insert';
+  updateVimStatus();
+  vimSetCaret(lineEnd + 1);
+  onContentChanged(true);
+}
+function vimOpenLineAbove() {
+  const p = editor.selectionStart;
+  const v = editor.value;
+  const lineStart = v.lastIndexOf('\n', p - 1) + 1;
+  editor.setRangeText('\n', lineStart, lineStart, 'end');
+  vim.mode = 'insert';
+  updateVimStatus();
+  vimSetCaret(lineStart);
+  onContentChanged(true);
+}
+function vimEnterInsert() { vim.mode = 'insert'; updateVimStatus(); }
+
+function vimExecuteCommand(cmd) {
+  const c = cmd.trim();
+  if (c === 'w' || c === 'wq' || c === 'x') { saveLocally(false); showToast('Written'); }
+  else if (c === 'q' || c === 'q!') showToast('Use :w to save — nothing to quit in the browser');
+  else if (c === 'set nu' || c === 'set number') { settings.showLineNumbers = true; persistSettings(); applySettings(); }
+  else if (c === 'set nonu' || c === 'set nonumber') { settings.showLineNumbers = false; persistSettings(); applySettings(); }
+  else if (c === 'set wrap') { settings.wordWrap = true; persistSettings(); applySettings(); }
+  else if (c === 'set nowrap') { settings.wordWrap = false; persistSettings(); applySettings(); }
+  else if (c) showToast('Unknown command: ' + c);
+}
+
+function handleVimKeydown(e) {
+  if (!vim.enabled) return;
+
+  if (vim.mode === 'insert') {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      vim.mode = 'normal';
+      vim.pending = '';
+      const p = editor.selectionStart;
+      if (p > 0) vimSetCaret(p - 1);
+      updateVimStatus();
+    }
+    return;
+  }
+
+  if (vim.mode === 'command') {
+    e.preventDefault();
+    if (e.key === 'Escape') {
+      vim.mode = 'normal';
+      vim.commandBuffer = '';
+      updateVimStatus();
+    } else if (e.key === 'Enter') {
+      const cmd = vim.commandBuffer;
+      vim.commandBuffer = '';
+      vim.mode = 'normal';
+      updateVimStatus();
+      vimExecuteCommand(cmd);
+    } else if (e.key === 'Backspace') {
+      vim.commandBuffer = vim.commandBuffer.slice(0, -1);
+      updateVimStatus();
+    } else if (e.key.length === 1) {
+      vim.commandBuffer += e.key;
+      updateVimStatus();
+    }
+    return;
+  }
+
+  e.preventDefault();
+
+  if (vim.pending) {
+    const combo = vim.pending + e.key;
+    vim.pending = '';
+    if (combo === 'dd') { vimDeleteLine(); return; }
+    if (combo === 'yy') { vimYankLine(); return; }
+    if (combo === 'gg') { vimGotoTop(); return; }
+    if (combo === 'dw') {
+      const p = editor.selectionStart;
+      const v = editor.value;
+      let end = p;
+      while (end < v.length && /\w/.test(v[end])) end++;
+      while (end < v.length && !/\w/.test(v[end]) && v[end] !== '\n') end++;
+      editor.setRangeText('', p, end, 'end');
+      onContentChanged(true);
+      vimSetCaret(p);
+      return;
+    }
+    if (combo === 'cw') {
+      const p = editor.selectionStart;
+      const v = editor.value;
+      let end = p;
+      while (end < v.length && /\w/.test(v[end])) end++;
+      editor.setRangeText('', p, end, 'end');
+      onContentChanged(true);
+      vim.mode = 'insert';
+      updateVimStatus();
+      vimSetCaret(p);
+      return;
+    }
+    return;
+  }
+
+  if (e.ctrlKey) { if (e.key === 'r') { redo(); return; } return; }
+
+  switch (e.key) {
+    case 'i': vimEnterInsert(); return;
+    case 'a': vimMoveRight(); vimEnterInsert(); return;
+    case 'I': vimMoveLineStart(); vimEnterInsert(); return;
+    case 'A': vimMoveLineEnd(); vimEnterInsert(); return;
+    case 'o': vimOpenLineBelow(); return;
+    case 'O': vimOpenLineAbove(); return;
+    case 'h': case 'ArrowLeft': vimMoveLeft(); return;
+    case 'j': case 'ArrowDown': vimMoveDown(); return;
+    case 'k': case 'ArrowUp': vimMoveUp(); return;
+    case 'l': case 'ArrowRight': vimMoveRight(); return;
+    case 'w': vimMoveWordForward(); return;
+    case 'b': vimMoveWordBack(); return;
+    case '0': vimMoveLineStart(); return;
+    case '$': vimMoveLineEnd(); return;
+    case 'G': vimGotoBottom(); return;
+    case 'g': vim.pending = 'g'; return;
+    case 'd': vim.pending = 'd'; return;
+    case 'y': vim.pending = 'y'; return;
+    case 'c': vim.pending = 'c'; return;
+    case 'x': vimDeleteChar(); return;
+    case 'p': vimPaste(); return;
+    case 'u': undo(); return;
+    case ':':
+      vim.mode = 'command';
+      vim.commandBuffer = '';
+      updateVimStatus();
+      return;
+    case 'Escape': vim.pending = ''; return;
+  }
+}
+
+/* ============================================================
+   8. Templates
+   ============================================================ */
+function loadTemplates() {
+  try {
+    const raw = localStorage.getItem(STORAGE.templates);
+    templates = raw ? JSON.parse(raw) : [...DEFAULT_TEMPLATES];
+    if (!Array.isArray(templates)) templates = [...DEFAULT_TEMPLATES];
+  } catch { templates = [...DEFAULT_TEMPLATES]; }
+  renderTemplatesList();
+  populateTemplateSelect();
+}
+function persistTemplates() {
+  try { localStorage.setItem(STORAGE.templates, JSON.stringify(templates)); }
+  catch { showToast('Could not save templates'); }
+  renderTemplatesList();
+  populateTemplateSelect();
+}
+function renderTemplatesList() {
+  const container = $('#templatesListContainer');
+  container.innerHTML = '';
+  if (!templates.length) {
+    container.innerHTML = '<p style="font-size:13px;color:var(--text-muted)">No templates yet.</p>';
+    return;
+  }
+  templates.forEach((tpl, index) => {
+    const row = document.createElement('div');
+    row.className = 'template-item';
+    const name = document.createElement('span');
+    name.textContent = tpl.name;
+    const remove = document.createElement('button');
+    remove.className = 'btn-danger';
+    remove.textContent = 'Remove';
+    remove.addEventListener('click', () => removeTemplate(index));
+    row.append(name, remove);
+    container.appendChild(row);
+  });
+}
+function populateTemplateSelect() {
+  const select = $('#templateSelect');
+  select.innerHTML = '';
+  templates.forEach(tpl => {
+    const opt = document.createElement('option');
+    opt.value = tpl.id;
+    opt.textContent = tpl.name;
+    select.appendChild(opt);
+  });
+}
+function addNewTemplate() {
+  const name = $('#newTemplateName').value.trim();
+  const content = $('#newTemplateContent').value;
+  if (!name) { showToast('Please enter a template name'); return; }
+  templates.push({ id: 'custom_' + Date.now(), name, content });
+  persistTemplates();
+  $('#newTemplateName').value = '';
+  $('#newTemplateContent').value = '';
+  showToast('Template added');
+}
+function removeTemplate(index) {
+  const name = templates[index]?.name ?? 'this template';
+  showConfirm('Remove template', `Delete "${name}"?`, () => {
+    templates.splice(index, 1);
+    persistTemplates();
+    showToast('Template removed');
+  });
+}
+
+/* ============================================================
+   9. Line numbers
+   ============================================================ */
+let measureCtx = null;
+let cachedFont = '';
+
+function countVisualRows(text, maxWidth, font) {
+  if (!settings.wordWrap) return 1;
+  if (!text) return 1;
+  if (maxWidth <= 0) return 1;
+  if (!measureCtx) measureCtx = document.createElement('canvas').getContext('2d');
+  if (cachedFont !== font) { measureCtx.font = font; cachedFont = font; }
+  return Math.max(1, Math.ceil(measureCtx.measureText(text).width / maxWidth));
+}
+function scheduleLineNumbers() {
+  if (lineNumberFrame) return;
+  lineNumberFrame = requestAnimationFrame(() => {
+    lineNumberFrame = null;
+    renderLineNumbers();
+  });
+}
+function renderLineNumbers() {
+  if (!settings.showLineNumbers) return;
+  const lines = editor.value.split('\n');
+  const cs = getComputedStyle(editor);
+  const lineHeight = parseFloat(cs.lineHeight) || (settings.fontSize * settings.lineHeight);
+  const font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  const innerWidth = editor.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const digits = String(lines.length).length;
+  lineNumbersEl.style.minWidth = `calc(${digits}ch + 24px)`;
+  const wrapAccurate = lines.length <= 3000;
+  const parts = [];
+  for (let i = 0; i < lines.length; i++) {
+    const rows = wrapAccurate ? countVisualRows(lines[i], innerWidth, font) : 1;
+    parts.push(`<div class="ln" style="height:${rows * lineHeight}px">${i + 1}</div>`);
+  }
+  lineNumbersEl.innerHTML = parts.join('');
+  syncGutterScroll();
+}
+function syncGutterScroll() {
+  lineNumbersEl.style.transform = `translateY(${-editor.scrollTop}px)`;
+}
+
+/* ============================================================
+   10. History
+   ============================================================ */
+function updateHistoryButtons() {
+  undoBtn.disabled = historyIndex <= 0;
+  redoBtn.disabled = historyIndex >= history.length - 1;
+}
+function pushHistory() {
+  const current = editor.value;
+  if (history[historyIndex] === current) return;
+  history = history.slice(0, historyIndex + 1);
+  history.push(current);
+  historyIndex = history.length - 1;
+  if (history.length > 200) { history.shift(); historyIndex--; }
+  updateHistoryButtons();
+}
+function undo() {
+  if (historyIndex <= 0) return;
+  historyIndex--;
+  editor.value = history[historyIndex];
+  updateHistoryButtons();
+  afterProgrammaticChange();
+}
+function redo() {
+  if (historyIndex >= history.length - 1) return;
+  historyIndex++;
+  editor.value = history[historyIndex];
+  updateHistoryButtons();
+  afterProgrammaticChange();
+}
+function afterProgrammaticChange() {
+  updateStatusBar();
+  scheduleLineNumbers();
+  scheduleAutosave();
+  updateHighlightLayer();
+}
+
+/* ============================================================
+   11. Change pipeline
+   ============================================================ */
+function onContentChanged(immediate) {
+  markDirty(true);
+  updateStatusBar();
+  scheduleLineNumbers();
+  scheduleAutosave();
+  updateFormatButtons();
+  updateHighlightLayer();
+  clearTimeout(historyTimer);
+  if (immediate) pushHistory();
+  else historyTimer = setTimeout(pushHistory, 400);
+}
+editor.addEventListener('input', () => onContentChanged(false));
+
+/* ============================================================
+   12. Status bar
+   ============================================================ */
+function updateStatusBar() {
+  const text = editor.value;
+  const pos = editor.selectionStart;
+  let line = 1;
+  let idx = -1;
+  while ((idx = text.indexOf('\n', idx + 1)) !== -1 && idx < pos) line++;
+  const col = pos - text.lastIndexOf('\n', pos - 1);
+  $('#statusPos').textContent = `Ln ${line}, Col ${col}`;
+  const selLen = Math.abs(editor.selectionEnd - editor.selectionStart);
+  const selEl = $('#statusSel');
+  selEl.style.display = selLen ? '' : 'none';
+  selEl.textContent = `Sel ${selLen}`;
+  const lineCount = text.split('\n').length;
+  $('#statusLines').textContent = `${lineCount} line${lineCount === 1 ? '' : 's'}`;
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  $('#statusWords').textContent = `${words} word${words === 1 ? '' : 's'}`;
+  $('#statusChars').textContent = `${text.length} char${text.length === 1 ? '' : 's'}`;
+}
+['click', 'keyup', 'select', 'input', 'focus'].forEach(evt =>
+  editor.addEventListener(evt, updateStatusBar)
+);
+function markDirty(dirty) {
+  if (isDirty === dirty) return;
+  isDirty = dirty;
+  $('#statusSave').textContent = dirty ? 'Unsaved changes' : 'Saved';
+}
+
+/* ============================================================
+   13. Autosave
+   ============================================================ */
+function scheduleAutosave() {
+  if (!settings.autosave) return;
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => saveLocally(true), 1500);
+}
+
+/* ============================================================
+   14. Document actions
+   ============================================================ */
+function saveLocally(silent = false) {
+  try {
+    localStorage.setItem(STORAGE.doc, editor.value);
+    markDirty(false);
+    if (!silent) showToast('Document saved');
+  } catch {
+    if (!silent) showToast('Could not save (storage full?)');
+  }
+}
+function resetDocument() {
+  editor.value = '';
+  history = [''];
+  historyIndex = 0;
+  updateHistoryButtons();
+  localStorage.removeItem(STORAGE.doc);
+  markDirty(false);
+  afterProgrammaticChange();
+  showToast('New document created');
+}
+function newFile() {
+  if (!editor.value) { resetDocument(); return; }
+  showConfirm('New document', 'Discard the current document?', resetDocument);
+}
+function printFile() { window.print(); }
+
+/* ============================================================
+   15. Clipboard
+   ============================================================ */
+function selectAllText() { editor.focus(); editor.select(); }
+function cutText() {
+  editor.focus();
+  const { selectionStart: s, selectionEnd: e } = editor;
+  if (s === e) { showToast('Nothing selected'); return; }
+  const selected = editor.value.slice(s, e);
+  navigator.clipboard.writeText(selected).then(() => {
+    editor.setRangeText('', s, e, 'end');
+    onContentChanged(true);
+    showToast('Cut to clipboard');
+  }).catch(() => showToast('Clipboard unavailable'));
+}
+function copyText() {
+  editor.focus();
+  const { selectionStart: s, selectionEnd: e } = editor;
+  const text = s === e ? editor.value : editor.value.slice(s, e);
+  navigator.clipboard.writeText(text).then(() => {
+    showToast(s === e ? 'All text copied' : 'Copied to clipboard');
+  }).catch(() => showToast('Clipboard unavailable'));
+}
+function pasteText() {
+  editor.focus();
+  navigator.clipboard.readText().then(clipText => {
+    editor.setRangeText(clipText, editor.selectionStart, editor.selectionEnd, 'end');
+    onContentChanged(true);
+  }).catch(() => showToast('Clipboard access denied — use Ctrl+V'));
+}
+
+/* ============================================================
+   16. Inline formatting (B / I / U)
+   ============================================================ */
+function applyInlineMark(kind) {
+  const mark = INLINE_MARKS[kind];
+  if (!mark) return;
+
+  const { before, after } = mark;
+  const value = editor.value;
+  const s = editor.selectionStart;
+  const e = editor.selectionEnd;
+  const selected = value.slice(s, e);
+
+  const scrollTop = editor.scrollTop;
+  const scrollLeft = editor.scrollLeft;
+
+  const wrappedOutside =
+    s >= before.length &&
+    e + after.length <= value.length &&
+    value.slice(s - before.length, s) === before &&
+    value.slice(e, e + after.length) === after;
+
+  const wrappedInside =
+    selected.length >= before.length + after.length &&
+    selected.startsWith(before) &&
+    selected.endsWith(after);
+
+  let newValue, newStart, newEnd;
+
+  if (wrappedInside) {
+    const inner = selected.slice(before.length, selected.length - after.length);
+    newValue = value.slice(0, s) + inner + value.slice(e);
+    newStart = s;
+    newEnd = s + inner.length;
+  } else if (wrappedOutside) {
+    newValue = value.slice(0, s - before.length) + selected + value.slice(e + after.length);
+    newStart = s - before.length;
+    newEnd = newStart + selected.length;
+  } else if (s === e) {
+    newValue = value.slice(0, s) + before + after + value.slice(s);
+    newStart = newEnd = s + before.length;
+  } else {
+    newValue = value.slice(0, s) + before + selected + after + value.slice(e);
+    newStart = s + before.length;
+    newEnd = newStart + selected.length;
+  }
+
+  editor.value = newValue;
+  editor.focus();
+  editor.setSelectionRange(newStart, newEnd);
+  editor.scrollTop = scrollTop;
+  editor.scrollLeft = scrollLeft;
+
+  onContentChanged(true);
+  updateFormatButtons();
+}
+
+function updateFormatButtons() {
+  const value = editor.value;
+  const s = editor.selectionStart;
+  const e = editor.selectionEnd;
+
+  const isActive = (kind) => {
+    if (kind === 'bold') {
+      return value.slice(s - 2, s) === '**' && value.slice(e, e + 2) === '**';
+    }
+    if (kind === 'italic') {
+      return value[s - 1] === '*' && value[s - 2] !== '*' &&
+             value[e] === '*' && value[e + 1] !== '*';
+    }
+    if (kind === 'underline') {
+      return value.slice(s - 3, s) === '<u>' && value.slice(e, e + 4) === '</u>';
+    }
+    return false;
+  };
+
+  $$('[data-format]').forEach(btn => {
+    btn.classList.toggle('active', isActive(btn.dataset.format));
+  });
+}
+
+/* ============================================================
+   17. Line-level helpers
+   ============================================================ */
+function getLineBounds() {
+  const text = editor.value;
+  const start = text.lastIndexOf('\n', editor.selectionStart - 1) + 1;
+  let end = text.indexOf('\n', editor.selectionEnd);
+  if (end === -1) end = text.length;
+  return { start, end };
+}
+function duplicateLine() {
+  const { start, end } = getLineBounds();
+  const block = editor.value.slice(start, end);
+  editor.setRangeText('\n' + block, end, end, 'end');
+  onContentChanged(true);
+}
+function deleteLine() {
+  const text = editor.value;
+  const { start, end } = getLineBounds();
+  let from = start, to = end;
+  if (end < text.length) to = end + 1;
+  else if (start > 0) from = start - 1;
+  editor.setRangeText('', from, to, 'end');
+  onContentChanged(true);
+}
+function indentSelection(outdent) {
+  const hadSelection = editor.selectionStart !== editor.selectionEnd;
+  const { start, end } = getLineBounds();
+  const unit = ' '.repeat(settings.tabSize);
+  const block = editor.value.slice(start, end).split('\n').map(line => {
+    if (!outdent) return unit + line;
+    if (line.startsWith('\t')) return line.slice(1);
+    let i = 0;
+    while (i < unit.length && line[i] === ' ') i++;
+    return line.slice(i);
+  }).join('\n');
+  editor.setRangeText(block, start, end, hadSelection ? 'select' : 'end');
+  onContentChanged(true);
+}
+function transformCase(fn) {
+  const s = editor.selectionStart;
+  const e = editor.selectionEnd;
+  const hasSel = e > s;
+  const from = hasSel ? s : 0;
+  const to = hasSel ? e : editor.value.length;
+  const original = editor.value.slice(from, to);
+  const changed = fn(original);
+  if (changed === original) return;
+  editor.setRangeText(changed, from, to, hasSel ? 'select' : 'end');
+  editor.focus();
+  onContentChanged(true);
+}
+function insertDateTime() {
+  const now = new Date();
+  const stamp = now.toLocaleString(undefined, {
+    year: 'numeric', month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
+  editor.setRangeText(stamp, editor.selectionStart, editor.selectionEnd, 'end');
+  onContentChanged(true);
+}
+
+/* ============================================================
+   18. Find & replace
+   ============================================================ */
+function openFindModal() {
+  openModal('findModal');
+  findInput.value = editor.value.slice(editor.selectionStart, editor.selectionEnd).split('\n')[0];
+  refreshFindMatches();
+  findInput.focus();
+  findInput.select();
+}
+function refreshFindMatches() {
+  const term = findInput.value;
+  findMatches = [];
+  findCursor = -1;
+  if (!term) { findMeta.textContent = ''; return; }
+  const hay = editor.value.toLowerCase();
+  const needle = term.toLowerCase();
+  let i = hay.indexOf(needle);
+  while (i !== -1) {
+    findMatches.push(i);
+    i = hay.indexOf(needle, i + needle.length);
+  }
+  findMeta.textContent = findMatches.length
+    ? `${findMatches.length} match${findMatches.length === 1 ? '' : 'es'}`
+    : 'No matches';
+}
+function stepFind(direction) {
+  if (!findMatches.length) refreshFindMatches();
+  if (!findMatches.length) return;
+  findCursor = (findCursor + direction + findMatches.length) % findMatches.length;
+  const index = findMatches[findCursor];
+  editor.focus();
+  editor.setSelectionRange(index, index + findInput.value.length);
+  findMeta.textContent = `${findCursor + 1} of ${findMatches.length}`;
+}
+function openReplaceModal() {
+  openModal('replaceModal');
+  $('#replaceFindInput').value = editor.value.slice(editor.selectionStart, editor.selectionEnd).split('\n')[0];
+  $('#replaceFindInput').focus();
+}
+function executeReplaceAll() {
+  const find = $('#replaceFindInput').value;
+  const replace = $('#replaceWithInput').value;
+  if (!find) { showToast('Enter text to find'); return; }
+  if (!editor.value.includes(find)) { showToast('No matches found'); return; }
+  const count = editor.value.split(find).length - 1;
+  editor.value = editor.value.split(find).join(replace);
+  onContentChanged(true);
+  closeModal('replaceModal');
+  showToast(`Replaced ${count} occurrence${count === 1 ? '' : 's'}`);
+}
+
+/* ============================================================
+   19. Go to line
+   ============================================================ */
+function openGotoModal() {
+  const text = editor.value;
+  const pos = editor.selectionStart;
+  let line = 1;
+  for (let i = 0; i < pos; i++) if (text[i] === '\n') line++;
+  $('#gotoInput').value = line;
+  openModal('gotoModal');
+  $('#gotoInput').focus();
+  $('#gotoInput').select();
+}
+function executeGoto() {
+  const lines = editor.value.split('\n');
+  const requested = parseInt($('#gotoInput').value, 10);
+  if (isNaN(requested)) return;
+  const target = Math.min(Math.max(1, requested), lines.length);
+  let index = 0;
+  for (let i = 0; i < target - 1; i++) index += lines[i].length + 1;
+  editor.focus();
+  editor.setSelectionRange(index, index + lines[target - 1].length);
+  closeModal('gotoModal');
+}
+
+/* ============================================================
+   20. File import / export
+   ============================================================ */
+function triggerUpload() { fileInput.click(); }
+function triggerBgUpload() { bgFileInput.click(); }
+
+async function importFile(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+  const ext = '.' + file.name.split('.').pop().toLowerCase();
+
+  if (ext === '.pdf') {
+    try {
+      const buffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+      const pages = [];
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        pages.push(content.items.map(item => item.str).join(' '));
       }
-    });
-
-    /* Templates Storage & Logic */
-    function loadTemplates() {
-      const stored = localStorage.getItem('landen_editor_templates');
-      if (stored) {
-        try {
-          templates = JSON.parse(stored);
-        } catch(e) {
-          templates = [...DEFAULT_TEMPLATES];
-        }
-      }
-      renderTemplatesList();
-      populateTemplateSelect();
-    }
-
-    function saveTemplatesToStorage() {
-      localStorage.setItem('landen_editor_templates', JSON.stringify(templates));
-      renderTemplatesList();
-      populateTemplateSelect();
-    }
-
-    function renderTemplatesList() {
-      const container = document.getElementById('templatesListContainer');
-      container.innerHTML = '';
-
-      templates.forEach((tpl, index) => {
-        const item = document.createElement('div');
-        item.className = 'template-item';
-        item.innerHTML = `
-          <span style="font-size: 13px; font-weight: 500;">${tpl.name}</span>
-          <button class="btn-danger" onclick="removeTemplate(${index})">Remove</button>
-        `;
-        container.appendChild(item);
-      });
-    }
-
-    function populateTemplateSelect() {
-      const select = document.getElementById('templateSelect');
-      select.innerHTML = '';
-      templates.forEach(tpl => {
-        const opt = document.createElement('option');
-        opt.value = tpl.id;
-        opt.textContent = tpl.name;
-        select.appendChild(opt);
-      });
-    }
-
-    function addNewTemplate() {
-      const nameInput = document.getElementById('newTemplateName');
-      const contentInput = document.getElementById('newTemplateContent');
-
-      const name = nameInput.value.trim();
-      const content = contentInput.value;
-
-      if (!name) {
-        alert('Please enter a template name.');
-        return;
-      }
-
-      const id = 'custom_' + Date.now();
-      templates.push({ id, name, content });
-      saveTemplatesToStorage();
-
-      nameInput.value = '';
-      contentInput.value = '';
-      showToast('Template added!');
-    }
-
-    function removeTemplate(index) {
-      templates.splice(index, 1);
-      saveTemplatesToStorage();
-      showToast('Template removed');
-    }
-
-    /* Settings Storage & Application Logic */
-    function loadSettings() {
-      const stored = localStorage.getItem('landen_editor_settings');
-      if (stored) {
-        try {
-          savedSettings = { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
-        } catch(e) {
-          savedSettings = { ...DEFAULT_SETTINGS };
-        }
-      }
-      applySettingsToDOM(savedSettings);
-    }
-
-    function applySettingsToDOM(settings) {
-      document.body.classList.toggle('dark-theme', settings.darkTheme);
-      document.documentElement.style.setProperty('--accent-color', settings.themeColor);
-
-      // Background logic
-      const bgLayer = document.getElementById('bgImageLayer');
-      const bgOverlayLayer = document.getElementById('bgOverlayLayer');
-
-      if (settings.bgImage === 'imported' && settings.bgImageData) {
-        document.documentElement.style.setProperty('--bg-image', `url(${settings.bgImageData})`);
-      } else {
-        document.documentElement.style.setProperty('--bg-image', 'none');
-      }
-
-      document.documentElement.style.setProperty('--bg-blur', settings.bgHazy ? '8px' : '0px');
-      document.documentElement.style.setProperty('--bg-overlay-opacity', settings.bgInsertion ? '0.7' : '0');
-
-      // Editor formatting
-      editor.style.fontFamily = settings.wordingFont || settings.fontFamily;
-      editor.style.fontSize = settings.fontSize;
-      editor.style.whiteSpace = settings.wordWrap ? 'pre-wrap' : 'pre';
-      editor.style.lineHeight = settings.wordingLineHeight || settings.lineHeight;
-      editor.spellcheck = settings.spellcheck;
-      document.getElementById('fileExtSelect').value = settings.defaultExt;
-
-      document.getElementById('toolbarFontFamily').value = settings.wordingFont || settings.fontFamily;
-      document.getElementById('toolbarFontSize').value = settings.fontSize;
-    }
-
-    function populateModalInputs(settings) {
-      document.getElementById('darkThemeToggle').checked = settings.darkTheme;
-      document.getElementById('themeColorSelect').value = settings.themeColor;
-      document.getElementById('bgImageSelect').value = settings.bgImage;
-      document.getElementById('bgHazyToggle').checked = settings.bgHazy;
-      document.getElementById('bgInsertionToggle').checked = settings.bgInsertion;
-
-      document.getElementById('spellcheckToggle').checked = settings.spellcheck;
-      document.getElementById('defaultFontSelect').value = settings.fontFamily;
-      document.getElementById('defaultExtSelect').value = settings.defaultExt;
-      document.getElementById('defaultLineHeightSelect').value = settings.lineHeight;
-
-      document.getElementById('wordWrapToggle').checked = settings.wordWrap;
-      document.getElementById('wordingFontSelect').value = settings.wordingFont;
-      document.getElementById('wordingLineHeightSelect').value = settings.wordingLineHeight;
-    }
-
-    function openSettingsModal() {
-      populateModalInputs(savedSettings);
-      document.getElementById('settingsModal').style.display = 'flex';
-    }
-
-    function closeSettingsModal() {
-      document.getElementById('settingsModal').style.display = 'none';
-    }
-
-    function saveSettings() {
-      savedSettings = {
-        ...savedSettings,
-        darkTheme: document.getElementById('darkThemeToggle').checked,
-        themeColor: document.getElementById('themeColorSelect').value,
-        bgImage: document.getElementById('bgImageSelect').value,
-        bgHazy: document.getElementById('bgHazyToggle').checked,
-        bgInsertion: document.getElementById('bgInsertionToggle').checked,
-        spellcheck: document.getElementById('spellcheckToggle').checked,
-        fontFamily: document.getElementById('defaultFontSelect').value,
-        defaultExt: document.getElementById('defaultExtSelect').value,
-        lineHeight: document.getElementById('defaultLineHeightSelect').value,
-        wordWrap: document.getElementById('wordWrapToggle').checked,
-        wordingFont: document.getElementById('wordingFontSelect').value,
-        wordingLineHeight: document.getElementById('wordingLineHeightSelect').value
-      };
-
-      localStorage.setItem('landen_editor_settings', JSON.stringify(savedSettings));
-      applySettingsToDOM(savedSettings);
-      closeSettingsModal();
-      showToast('Settings saved!');
-    }
-
-    function triggerBgUpload() {
-      bgFileInput.click();
-    }
-
-    function uploadBgImage(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        savedSettings.bgImageData = e.target.result;
-        savedSettings.bgImage = 'imported';
-        document.getElementById('bgImageSelect').value = 'imported';
-        showToast('Background image imported');
-      };
-      reader.readAsDataURL(file);
-      event.target.value = '';
-    }
-
-    /* Toolbar Controls */
-    function updateFontFamilyFromToolbar(val) {
-      savedSettings.wordingFont = val;
-      savedSettings.fontFamily = val;
-      editor.style.fontFamily = val;
-      localStorage.setItem('landen_editor_settings', JSON.stringify(savedSettings));
-    }
-
-    function updateFontSizeFromToolbar(val) {
-      savedSettings.fontSize = val;
-      editor.style.fontSize = val;
-      localStorage.setItem('landen_editor_settings', JSON.stringify(savedSettings));
-    }
-
-    /* Edit Menu Actions */
-    function selectAllText() {
-      editor.select();
-      editor.focus();
-    }
-
-    function cutText() {
-      editor.focus();
-      const start = editor.selectionStart;
-      const end = editor.selectionEnd;
-      const selected = editor.value.substring(start, end);
-
-      if (selected) {
-        navigator.clipboard.writeText(selected).then(() => {
-          editor.setRangeText('', start, end, 'end');
-          saveState();
-          showToast('Cut to clipboard');
-        });
-      }
-    }
-
-    function copyText() {
-      editor.focus();
-      const start = editor.selectionStart;
-      const end = editor.selectionEnd;
-      const selected = editor.value.substring(start, end);
-
-      if (selected) {
-        navigator.clipboard.writeText(selected).then(() => {
-          showToast('Copied to clipboard');
-        });
-      } else {
-        navigator.clipboard.writeText(editor.value).then(() => {
-          showToast('All text copied to clipboard');
-        });
-      }
-    }
-
-    function pasteText() {
-      editor.focus();
-      navigator.clipboard.readText().then((clipText) => {
-        const start = editor.selectionStart;
-        const end = editor.selectionEnd;
-        editor.setRangeText(clipText, start, end, 'end');
-        saveState();
-        showToast('Pasted from clipboard');
-      }).catch(() => {
-        showToast('Clipboard access denied. Use Ctrl+V');
-      });
-    }
-
-    /* Find & Replace Handlers */
-    let lastSearchIndex = 0;
-
-    function openFindModal() {
-      document.getElementById('findModal').style.display = 'flex';
-      document.getElementById('findInput').focus();
-    }
-
-    function closeFindModal() {
-      document.getElementById('findModal').style.display = 'none';
-      lastSearchIndex = 0;
-    }
-
-    function executeFind() {
-      const searchTerm = document.getElementById('findInput').value;
-      if (!searchTerm) return;
-
-      const text = editor.value;
-      const matchIndex = text.toLowerCase().indexOf(searchTerm.toLowerCase(), lastSearchIndex);
-
-      if (matchIndex !== -1) {
-        editor.focus();
-        editor.setSelectionRange(matchIndex, matchIndex + searchTerm.length);
-        lastSearchIndex = matchIndex + searchTerm.length;
-      } else {
-        if (lastSearchIndex > 0) {
-          lastSearchIndex = 0;
-          executeFind();
-        } else {
-          showToast('Text not found');
-        }
-      }
-    }
-
-    function openReplaceModal() {
-      document.getElementById('replaceModal').style.display = 'flex';
-      document.getElementById('replaceFindInput').focus();
-    }
-
-    function closeReplaceModal() {
-      document.getElementById('replaceModal').style.display = 'none';
-    }
-
-    function executeReplaceAll() {
-      const findVal = document.getElementById('replaceFindInput').value;
-      const replaceVal = document.getElementById('replaceWithInput').value;
-
-      if (!findVal) return;
-
-      if (editor.value.includes(findVal)) {
-        const updated = editor.value.split(findVal).join(replaceVal);
-        editor.value = updated;
-        saveState();
-        showToast('Replaced all occurrences');
-      } else {
-        showToast('Target text not found');
-      }
-      closeReplaceModal();
-    }
-
-    /* Toast Notifications */
-    function showToast(message) {
-      toast.innerText = message;
-      toast.classList.add('show');
-      setTimeout(() => {
-        toast.classList.remove('show');
-      }, 2000);
-    }
-
-    /* Local File Save */
-    function saveLocally() {
-      localStorage.setItem('local_editor_document', editor.value);
-      showToast('Document saved!');
-    }
-
-    /* History & Undo/Redo State */
-    function updateButtons() {
-      undoBtn.disabled = historyIndex <= 0;
-      redoBtn.disabled = historyIndex >= history.length - 1;
-    }
-
-    function saveState() {
-      const currentText = editor.value;
-      if (history[historyIndex] === currentText) return;
-
-      history = history.slice(0, historyIndex + 1);
-      history.push(currentText);
-      historyIndex++;
-
-      if (history.length > 100) {
-        history.shift();
-        historyIndex--;
-      }
-      updateButtons();
-    }
-
-    function undo() {
-      if (historyIndex > 0) {
-        historyIndex--;
-        editor.value = history[historyIndex];
-        updateButtons();
-      }
-    }
-
-    function redo() {
-      if (historyIndex < history.length - 1) {
-        historyIndex++;
-        editor.value = history[historyIndex];
-        updateButtons();
-      }
-    }
-
-    editor.addEventListener('input', () => {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(saveState, 300);
-    });
-
-    document.addEventListener('keydown', (e) => {
-      if (e.ctrlKey || e.metaKey) {
-        if (e.key === 's' || e.key === 'S') {
-          e.preventDefault();
-          saveLocally();
-        } else if (e.key === 'f' || e.key === 'F') {
-          e.preventDefault();
-          if (e.shiftKey) {
-            openReplaceModal();
-          } else {
-            openFindModal();
-          }
-        } else if (e.key === 'ArrowLeft') {
-          e.preventDefault();
-          undo();
-        } else if (e.key === 'ArrowRight') {
-          e.preventDefault();
-          redo();
-        }
-      }
-    });
-
-    /* File Actions */
-    function newFile() {
-      if (editor.value.length === 0 || confirm('Clear current document?')) {
-        editor.value = '';
-        history = [''];
-        historyIndex = 0;
-        localStorage.removeItem('local_editor_document');
-        updateButtons();
-        showToast('New document created');
-      }
-    }
-
-    function printFile() {
-      window.print();
-    }
-
-    function triggerUpload() {
-      fileInput.click();
-    }
-
-    async function uploadFile(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const fileExt = '.' + file.name.split('.').pop().toLowerCase();
-
-      if (fileExt === '.pdf') {
-        try {
-          const arrayBuffer = await file.arrayBuffer();
-          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-          let extractedText = '';
-
-          for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const textContent = await page.getTextContent();
-            const pageText = textContent.items.map(item => item.str).join(' ');
-            extractedText += pageText + '\n\n';
-          }
-
-          editor.value = extractedText.trim();
-          saveState();
-        } catch (err) {
-          alert('Could not extract text from PDF file.');
-        }
-        event.target.value = '';
-        return;
-      }
-
-      const knownTextExts = ['.txt', '.html', '.htm', '.css', '.js', '.json', '.md', '.csv', '.xml', '.svg'];
-      const isStandardText = file.type.startsWith('text/') || knownTextExts.includes(fileExt);
-
-      if (!isStandardText) {
-        const proceed = confirm('The file type is not supported. Are you sure you want to load its hex code?');
-        if (!proceed) {
-          event.target.value = '';
-          return;
-        }
-
+      editor.value = pages.join('\n\n').trim();
+      onContentChanged(true);
+      showToast('PDF text imported');
+    } catch { showToast('Could not extract text from that PDF'); }
+    return;
+  }
+
+  const TEXT_EXTS = ['.txt', '.text', '.html', '.htm', '.css', '.js', '.mjs',
+                     '.json', '.md', '.markdown', '.csv', '.xml', '.svg', '.log',
+                     '.yml', '.yaml', '.py', '.c', '.h', '.cpp', '.java', '.rb', '.go', '.rs'];
+  const isText = file.type.startsWith('text/') || TEXT_EXTS.includes(ext);
+  if (!isText) {
+    showConfirm('Unsupported file type',
+      'This file is not plain text. Load it as a hex dump instead?',
+      () => {
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = e => {
           const bytes = new Uint8Array(e.target.result);
-          let hexResult = '';
+          let hex = '';
           for (let i = 0; i < bytes.length; i++) {
-            hexResult += bytes[i].toString(16).padStart(2, '0') + ' ';
+            hex += bytes[i].toString(16).padStart(2, '0') + ' ';
           }
-          editor.value = hexResult.trim();
-          saveState();
+          editor.value = hex.trim();
+          onContentChanged(true);
         };
         reader.readAsArrayBuffer(file);
-      } else {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          editor.value = e.target.result;
-          saveState();
-        };
-        reader.readAsText(file);
-      }
+      });
+    return;
+  }
 
-      event.target.value = '';
-    }
+  const reader = new FileReader();
+  reader.onload = e => {
+    editor.value = e.target.result;
+    onContentChanged(true);
+    showToast('File imported');
+  };
+  reader.readAsText(file);
+}
 
-    function showCustomConfirm(title, message, onConfirm) {
-      document.getElementById('confirmTitle').innerText = title;
-      document.getElementById('confirmMessage').innerText = message;
-      
-      const confirmModal = document.getElementById('confirmModal');
-      confirmModal.style.display = 'flex';
+function uploadBgImage(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    settings.bgImageData = e.target.result;
+    settings.bgImage = 'imported';
+    persistSettings();
+    applySettings();
+    $('#bgImageSelect').value = 'imported';
+    showToast('Background image imported');
+  };
+  reader.readAsDataURL(file);
+}
 
-      const okBtn = document.getElementById('confirmOkBtn');
-      const cancelBtn = document.getElementById('confirmCancelBtn');
+function openExportModal() {
+  const ext = settings.defaultExt;
+  const select = $('#fileExtSelect');
+  const hasOption = Array.from(select.options).some(o => o.value === ext);
+  select.value = hasOption ? ext : '.txt';
+  handleExtChange();
+  openModal('exportModal');
+  $('#fileNameInput').focus();
+  $('#fileNameInput').select();
+}
+function handleExtChange() {
+  $('#customExtContainer').style.display = $('#fileExtSelect').value === 'other' ? 'flex' : 'none';
+}
+function executeExport() {
+  const baseName = $('#fileNameInput').value.trim() || 'document';
+  const selection = $('#fileExtSelect').value;
+  let ext = selection;
+  if (selection === 'other') {
+    ext = $('#customExtInput').value.trim();
+    if (ext && !ext.startsWith('.')) ext = '.' + ext;
+  }
+  if (!ext) ext = '.txt';
+  const filename = baseName + ext;
+  const content = editor.value;
 
-      const cleanup = () => {
-        confirmModal.style.display = 'none';
-        okBtn.onclick = null;
-        cancelBtn.onclick = null;
-      };
+  if (ext.toLowerCase() === '.pdf') {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const lines = doc.splitTextToSize(content, 180);
+    doc.text(lines, 10, 10);
+    doc.save(filename);
+  } else {
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+  closeModal('exportModal');
+  showToast('Downloaded ' + filename);
+}
 
-      okBtn.onclick = () => {
-        cleanup();
-        onConfirm();
-      };
+/* ============================================================
+   21. Templates modal
+   ============================================================ */
+function openTemplateModal() {
+  if (!templates.length) { showToast('No templates available'); return; }
+  openModal('templateModal');
+}
+function loadSelectedTemplate() {
+  const id = $('#templateSelect').value;
+  const tpl = templates.find(t => t.id === id);
+  if (!tpl) return;
+  const apply = () => {
+    editor.value = tpl.content;
+    onContentChanged(true);
+    closeModal('templateModal');
+  };
+  closeModal('templateModal');
+  if (editor.value.length > 0) {
+    showConfirm('Replace content', 'Replace the current document with this template?', apply);
+  } else {
+    apply();
+  }
+}
 
-      cancelBtn.onclick = () => {
-        cleanup();
-      };
-    }
+/* ============================================================
+   22. Confirm modal
+   ============================================================ */
+let confirmCallback = null;
+function showConfirm(title, message, onConfirm) {
+  $('#confirmTitle').textContent = title;
+  $('#confirmMessage').textContent = message;
+  confirmCallback = onConfirm;
+  openModal('confirmModal');
+}
+$('#confirmOkBtn').addEventListener('click', () => {
+  const cb = confirmCallback;
+  confirmCallback = null;
+  closeModal('confirmModal');
+  if (cb) cb();
+});
+$('#confirmCancelBtn').addEventListener('click', () => {
+  confirmCallback = null;
+  closeModal('confirmModal');
+});
 
-    /* Export / Templates Modals */
-    function openExportModal() {
-      document.getElementById('exportModal').style.display = 'flex';
-    }
+/* ============================================================
+   23. Zoom & paper
+   ============================================================ */
+function setFontSize(px) {
+  settings.fontSize = Math.min(48, Math.max(8, px));
+  persistSettings();
+  applySettings();
+}
+function zoomIn() {
+  const next = FONT_SIZES.find(s => s > settings.fontSize);
+  if (next) setFontSize(next);
+}
+function zoomOut() {
+  const prev = [...FONT_SIZES].reverse().find(s => s < settings.fontSize);
+  if (prev) setFontSize(prev);
+}
+function zoomReset() { setFontSize(DEFAULT_SETTINGS.fontSize); }
 
-    function closeExportModal() {
-      document.getElementById('exportModal').style.display = 'none';
-    }
+function cyclePaper() {
+  const i = PAPER_STYLES.indexOf(settings.paperStyle);
+  settings.paperStyle = PAPER_STYLES[(i + 1) % PAPER_STYLES.length];
+  persistSettings();
+  applySettings();
+  showToast('Paper: ' + PAPER_LABELS[settings.paperStyle]);
+}
 
-    function handleExtChange() {
-      const select = document.getElementById('fileExtSelect');
-      const customContainer = document.getElementById('customExtContainer');
-      customContainer.style.display = (select.value === 'other') ? 'flex' : 'none';
-    }
+/* ============================================================
+   24. Code runner
+   ============================================================ */
+function toggleRunPanel() {
+  const open = !runPanel.classList.contains('open');
+  runPanel.classList.toggle('open', open);
+  runBtn.classList.toggle('active', open);
+  if (open) {
+    runLangLabel.textContent = 'Output — ' + (LANG_LABELS[settings.language] || 'Text');
+    updateRunPanelLanguageHint();
+    scheduleLineNumbers();
+  }
+}
+function closeRunPanel() {
+  runPanel.classList.remove('open');
+  runBtn.classList.remove('active');
+  scheduleLineNumbers();
+}
+function appendRunOutput(text) {
+  runOutput.classList.add('show');
+  runOutput.textContent += text;
+}
+function setRunStatus(text, isError) {
+  runStatus.textContent = text;
+  runStatus.style.color = isError ? 'var(--danger)' : 'var(--text-muted)';
+}
+function updateRunPanelLanguageHint() {
+  const lang = settings.language;
+  if (lang === 'c') setRunStatus('C requires a backend compiler — the panel will display your source.', false);
+  else if (lang === 'none') setRunStatus('Pick a language in Dev mode settings.', false);
+  else setRunStatus('', false);
+}
 
-    function confirmExport() {
-      const nameInput = document.getElementById('fileNameInput').value.trim() || 'document';
-      const selectVal = document.getElementById('fileExtSelect').value;
-      let ext = selectVal;
+async function runCode() {
+  const lang = settings.language;
+  const code = editor.value;
+  if (!runPanel.classList.contains('open')) toggleRunPanel();
+  runOutput.textContent = '';
+  runOutput.classList.remove('show');
+  runFrame.classList.remove('show');
+  runFrame.removeAttribute('srcdoc');
+  setRunStatus('', false);
+  runLangLabel.textContent = 'Output — ' + (LANG_LABELS[lang] || 'Text');
 
-      if (selectVal === 'other') {
-        ext = document.getElementById('customExtInput').value.trim();
-        if (ext && !ext.startsWith('.')) {
-          ext = '.' + ext;
+  if (lang === 'html') {
+    runFrame.classList.add('show');
+    runFrame.srcdoc = code || '<!DOCTYPE html><p style="font-family:sans-serif;padding:20px;color:#888">Empty document</p>';
+    setRunStatus('Rendered in sandbox', false);
+    return;
+  }
+
+  if (lang === 'javascript') {
+    runFrame.classList.add('show');
+    const wrapped = [
+      '<!DOCTYPE html><html><body>',
+      '<scr' + 'ipt>',
+      '(function(){',
+      '  const post = (kind, text) => parent.postMessage({type:"console", text: kind + text}, "*");',
+      '  const fmt = (v) => { try { return typeof v === "object" && v !== null ? JSON.stringify(v) : String(v); } catch(e) { return String(v); } };',
+      '  console.log   = (...a) => post("", a.map(fmt).join(" "));',
+      '  console.info  = (...a) => post("", a.map(fmt).join(" "));',
+      '  console.warn  = (...a) => post("[warn] ", a.map(fmt).join(" "));',
+      '  console.error = (...a) => post("[error] ", a.map(fmt).join(" "));',
+      '  window.onerror = (msg, src, line) => post("[error] ", msg + " (line " + line + ")");',
+      '  try {',
+      code,
+      '  } catch (e) { post("[error] ", e && e.message ? e.message : String(e)); }',
+      '})();',
+      '</scr' + 'ipt>',
+      '</body></html>'
+    ].join('\n');
+    runFrame.srcdoc = wrapped;
+    setRunStatus('Running…', false);
+    return;
+  }
+
+  if (lang === 'python') {
+    runOutput.classList.add('show');
+    setRunStatus('Loading Python runtime…', false);
+    try {
+      if (!window.pyodide) {
+        if (!pythonLoading) {
+          pythonLoading = (async () => {
+            if (!window.loadPyodide) {
+              await new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js';
+                s.onload = resolve;
+                s.onerror = () => reject(new Error('Failed to load Pyodide'));
+                document.head.appendChild(s);
+              });
+            }
+            return await window.loadPyodide({
+              indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/'
+            });
+          })();
         }
+        window.pyodide = await pythonLoading;
       }
-
-      const fullFilename = nameInput + ext;
-      const content = editor.value;
-
-      if (ext.toLowerCase() === '.pdf') {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        const splitText = doc.splitTextToSize(content, 180);
-        doc.text(splitText, 10, 10);
-        doc.save(fullFilename);
-      } else {
-        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fullFilename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+      setRunStatus('Running…', false);
+      const py = window.pyodide;
+      py.runPython(`
+import sys
+from io import StringIO
+sys.stdout = StringIO()
+sys.stderr = StringIO()
+      `);
+      try {
+        await py.runPythonAsync(code);
+        runOutput.textContent += py.runPython('sys.stdout.getvalue()');
+        const err = py.runPython('sys.stderr.getvalue()');
+        if (err) runOutput.textContent += err;
+        setRunStatus('Done', false);
+      } catch (err) {
+        runOutput.textContent += py.runPython('sys.stdout.getvalue()');
+        runOutput.textContent += '\n' + (err && err.message ? err.message : String(err));
+        setRunStatus('Error', true);
       }
-
-      closeExportModal();
+    } catch (err) {
+      runOutput.textContent = 'Could not load Python runtime.\n\n' + (err && err.message ? err.message : String(err));
+      setRunStatus('Runtime error', true);
     }
+    return;
+  }
 
-    function openTemplateModal() {
-      document.getElementById('templateModal').style.display = 'flex';
+  if (lang === 'c') {
+    runOutput.classList.add('show');
+    runOutput.textContent =
+      '// C compilation requires a native toolchain and cannot run entirely in the browser.\n' +
+      '// Your source is shown below.\n\n' + code;
+    setRunStatus('Not runnable in-browser', false);
+    return;
+  }
+
+  runOutput.classList.add('show');
+  runOutput.textContent = code;
+  setRunStatus('No runner for this language', false);
+}
+
+window.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'console') {
+    appendRunOutput(e.data.text + '\n');
+    setRunStatus('Running…', false);
+  }
+});
+
+/* ============================================================
+   25. Action registry
+   ============================================================ */
+const ACTIONS = {
+  new: newFile,
+  save: () => saveLocally(false),
+  download: openExportModal,
+  import: triggerUpload,
+  templates: openTemplateModal,
+  print: printFile,
+
+  undo, redo,
+  bold: () => applyInlineMark('bold'),
+  italic: () => applyInlineMark('italic'),
+  underline: () => applyInlineMark('underline'),
+  selectAll: selectAllText,
+  cut: cutText,
+  copy: copyText,
+  paste: pasteText,
+  find: openFindModal,
+  replace: openReplaceModal,
+  goto: openGotoModal,
+  duplicateLine,
+  deleteLine,
+  indent: () => indentSelection(false),
+  outdent: () => indentSelection(true),
+  upper: () => transformCase(t => t.toUpperCase()),
+  lower: () => transformCase(t => t.toLowerCase()),
+  title: () => transformCase(t => t.replace(/\w\S*/g, w => w[0].toUpperCase() + w.slice(1).toLowerCase())),
+  insertDate: insertDateTime,
+
+  findNext: () => stepFind(1),
+  findPrev: () => stepFind(-1),
+  replaceAll: executeReplaceAll,
+  gotoConfirm: executeGoto,
+
+  toggleLineNumbers: () => { settings.showLineNumbers = !settings.showLineNumbers; persistSettings(); applySettings(); },
+  toggleWordWrap: () => { settings.wordWrap = !settings.wordWrap; persistSettings(); applySettings(); },
+  toggleDarkTheme: () => { settings.darkTheme = !settings.darkTheme; persistSettings(); applySettings(); },
+  cyclePaper,
+  toggleMarginLine: () => { settings.marginLine = !settings.marginLine; persistSettings(); applySettings(); },
+  toggleSyntaxHighlight: () => { settings.syntaxHighlight = !settings.syntaxHighlight; persistSettings(); applySettings(); },
+  toggleRunPanel,
+  closeRunPanel,
+  runCode,
+  zoomIn, zoomOut, zoomReset,
+  settings: () => { populateSettingsForm(); openModal('settingsModal'); },
+
+  exportConfirm: executeExport,
+  templateLoad: loadSelectedTemplate,
+  addTemplate: addNewTemplate,
+  importBg: triggerBgUpload,
+
+  saveSettings: () => {
+    readSettingsForm();
+    persistSettings();
+    applySettings();
+    closeModal('settingsModal');
+    showToast('Settings saved');
+  }
+};
+
+document.addEventListener('click', (event) => {
+  const closeTarget = event.target.closest('[data-close]');
+  if (closeTarget) {
+    const overlay = closeTarget.closest('.modal-overlay');
+    if (overlay) overlay.classList.remove('open');
+    return;
+  }
+  const trigger = event.target.closest('[data-action]');
+  if (!trigger) return;
+  const action = ACTIONS[trigger.dataset.action];
+  if (action) action();
+  closeAllDropdowns();
+});
+
+/* ============================================================
+   26. Dropdowns & tabs
+   ============================================================ */
+function closeAllDropdowns() {
+  $$('.dropdown.open').forEach(d => d.classList.remove('open'));
+}
+$$('.dropdown').forEach(dropdown => {
+  const btn = dropdown.querySelector('.dropdown-btn');
+  btn.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const wasOpen = dropdown.classList.contains('open');
+    closeAllDropdowns();
+    if (!wasOpen) {
+      dropdown.classList.add('open');
+      syncMenuChecks();
     }
+  });
+});
+document.addEventListener('click', closeAllDropdowns);
 
-    function closeTemplateModal() {
-      document.getElementById('templateModal').style.display = 'none';
+$$('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $$('.tab-btn').forEach(b => b.classList.remove('active'));
+    $$('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+/* ============================================================
+   27. Keyboard shortcuts (global)
+   ============================================================ */
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    if ($('.modal-overlay.open')) { closeAllModals(); return; }
+    if ($('.dropdown.open')) { closeAllDropdowns(); return; }
+  }
+
+  if (vim.enabled && vim.mode !== 'insert' && document.activeElement === editor) {
+    return;
+  }
+
+  const mod = event.ctrlKey || event.metaKey;
+  if (mod) {
+    const key = event.key.toLowerCase();
+    if (key === 's') { event.preventDefault(); saveLocally(false); return; }
+    if (key === 'n') { event.preventDefault(); newFile(); return; }
+    if (key === 'p') { event.preventDefault(); printFile(); return; }
+    if (key === 'b') { event.preventDefault(); applyInlineMark('bold'); return; }
+    if (key === 'i') { event.preventDefault(); applyInlineMark('italic'); return; }
+    if (key === 'u') { event.preventDefault(); applyInlineMark('underline'); return; }
+    if (key === 'f') { event.preventDefault(); event.shiftKey ? openReplaceModal() : openFindModal(); return; }
+    if (key === 'g') { event.preventDefault(); openGotoModal(); return; }
+    if (key === ',') { event.preventDefault(); populateSettingsForm(); openModal('settingsModal'); return; }
+    if (key === 'd') { event.preventDefault(); duplicateLine(); return; }
+    if (key === 'k' && event.shiftKey) { event.preventDefault(); deleteLine(); return; }
+    if (key === '=' || key === '+') { event.preventDefault(); zoomIn(); return; }
+    if (key === '-') { event.preventDefault(); zoomOut(); return; }
+    if (key === '0') { event.preventDefault(); zoomReset(); return; }
+    if (key === 'z' && !event.shiftKey) { event.preventDefault(); undo(); return; }
+    if (key === 'y' || (key === 'z' && event.shiftKey)) { event.preventDefault(); redo(); return; }
+    if (event.key === 'ArrowLeft') { event.preventDefault(); undo(); return; }
+    if (event.key === 'ArrowRight') { event.preventDefault(); redo(); return; }
+  }
+});
+
+findInput.addEventListener('input', refreshFindMatches);
+findInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); stepFind(e.shiftKey ? -1 : 1); }
+});
+$('#replaceFindInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); executeReplaceAll(); }
+});
+
+/* ============================================================
+   28. Textarea behaviour
+   ============================================================ */
+editor.addEventListener('keydown', (event) => {
+  handleVimKeydown(event);
+  if (event.defaultPrevented) return;
+
+  if (event.key === 'Tab') {
+    event.preventDefault();
+    if (event.shiftKey) indentSelection(true);
+    else if (editor.selectionStart !== editor.selectionEnd) indentSelection(false);
+    else {
+      const unit = ' '.repeat(settings.tabSize);
+      editor.setRangeText(unit, editor.selectionStart, editor.selectionEnd, 'end');
+      onContentChanged(true);
     }
+    return;
+  }
 
-    function loadTemplate() {
-      const selectedId = document.getElementById('templateSelect').value;
-      const tpl = templates.find(t => t.id === selectedId);
-      if (!tpl) return;
-
-      const applyTemplate = () => {
-        editor.value = tpl.content;
-        saveState();
-        closeTemplateModal();
-      };
-
-      if (editor.value.length > 0) {
-        closeTemplateModal();
-        showCustomConfirm('Replace Content', 'Replace current editor content with template?', applyTemplate);
-      } else {
-        applyTemplate();
-      }
+  if (event.key === 'Enter' && settings.autoIndent && !event.shiftKey) {
+    const pos = editor.selectionStart;
+    if (pos !== editor.selectionEnd) return;
+    const lineStart = editor.value.lastIndexOf('\n', pos - 1) + 1;
+    const line = editor.value.slice(lineStart, pos);
+    const indent = (line.match(/^[ \t]*/) || [''])[0];
+    if (indent) {
+      event.preventDefault();
+      editor.setRangeText('\n' + indent, pos, pos, 'end');
+      onContentChanged(true);
     }
+  }
+});
 
-    function switchTab(tabId, event) {
-      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-      document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+editor.addEventListener('scroll', () => {
+  syncGutterScroll();
+  syncHighlightScroll();
+});
 
-      if (event && event.target) {
-        event.target.classList.add('active');
-      }
-      document.getElementById('tab-' + tabId).classList.add('active');
-    }
-  </script>
+['keyup', 'mouseup', 'click', 'select', 'input'].forEach(evt =>
+  editor.addEventListener(evt, updateFormatButtons)
+);
+
+const resizeObserver = new ResizeObserver(() => {
+  scheduleLineNumbers();
+  requestAnimationFrame(syncHighlightScroll);
+});
+resizeObserver.observe(editor);
+window.addEventListener('resize', () => {
+  scheduleLineNumbers();
+  syncHighlightScroll();
+});
+
+/* ============================================================
+   29. Wire up remaining controls
+   ============================================================ */
+
+/* --- B / I / U toolbar buttons ---------------------------------
+   mousedown.preventDefault() keeps focus in the textarea so the
+   selection survives the click, then click applies the mark. */
+$$('[data-format]').forEach(btn => {
+  btn.addEventListener('mousedown', (e) => e.preventDefault());
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    applyInlineMark(btn.dataset.format);
+  });
+});
+
+$('#toolbarFontFamily').addEventListener('change', (e) => {
+  settings.fontFamily = e.target.value;
+  persistSettings();
+  applySettings();
+});
+$('#toolbarFontSize').addEventListener('change', (e) => {
+  setFontSize(parseInt(e.target.value, 10));
+});
+$('#languageSelect').addEventListener('change', (e) => {
+  settings.language = e.target.value;
+  persistSettings();
+  applySettings();
+  if (runPanel.classList.contains('open')) {
+    updateRunPanelLanguageHint();
+    runLangLabel.textContent = 'Output — ' + (LANG_LABELS[settings.language] || 'Text');
+  }
+});
+$('#fileExtSelect').addEventListener('change', handleExtChange);
+fileInput.addEventListener('change', importFile);
+bgFileInput.addEventListener('change', uploadBgImage);
+
+/* ============================================================
+   30. Changelog
+   ============================================================ */
+function maybeShowChangelog() {
+  try {
+    const dismissed = localStorage.getItem(CHANGELOG_KEY);
+    if (dismissed === APP_VERSION) return;
+  } catch {}
+  openModal('changelogModal');
+}
+document.getElementById('changelogClose').addEventListener('click', () => {
+  if ($('#changelogDontShow').checked) {
+    try { localStorage.setItem(CHANGELOG_KEY, APP_VERSION); } catch {}
+  }
+  closeModal('changelogModal');
+});
+
+/* ============================================================
+   31. Boot
+   ============================================================ */
+function init() {
+  buildOptionLists();
+  loadTemplates();
+  loadSettings();
+
+  const saved = localStorage.getItem(STORAGE.doc);
+  if (saved !== null) {
+    editor.value = saved;
+    history = [saved];
+    historyIndex = 0;
+  }
+
+  updateHistoryButtons();
+  updateStatusBar();
+  updateFormatButtons();
+  updateVimStatus();
+  updateHighlightLayer();
+  renderLineNumbers();
+  markDirty(false);
+
+  maybeShowChangelog();
+}
+
+init();
+</script>
 </body>
 </html>
